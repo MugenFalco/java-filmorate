@@ -15,4 +15,10 @@ public class ErrorHandler {
     public Map<String, String> handleValidation(ValidationException e) {
         return Map.of("error", e.getMessage());
     }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleNotFound(NotFoundException e) {
+        return Map.of("error", e.getMessage());
+    }
 }
