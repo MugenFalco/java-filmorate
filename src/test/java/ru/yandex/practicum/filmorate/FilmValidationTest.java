@@ -2,15 +2,16 @@ package ru.yandex.practicum.filmorate;
 
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.filmorate.controller.FilmController;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class FilmValidationTest {
+class FilmValidationTest {
+
     private final FilmController controller = new FilmController();
 
     @Test
@@ -40,7 +41,7 @@ public class FilmValidationTest {
     }
 
     @Test
-    void shouldFailWhenReleaseDateIsExactlyBoundary() {
+    void shouldPassWhenReleaseDateIsExactlyBoundary() {
         Film film = new Film();
         film.setName("Название");
         film.setDuration(120);
@@ -54,5 +55,32 @@ public class FilmValidationTest {
         film.setName("Название");
         film.setDuration(-1);
         assertThrows(ValidationException.class, () -> controller.addFilm(film));
+    }
+
+    @Test
+    void shouldUpdateOnlyNameWhenOtherFieldsAreNull() {
+        Film film = new Film();
+        film.setName("Старое название");
+        film.setDescription("Описание");
+        film.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film.setDuration(120);
+        Film created = controller.addFilm(film);
+
+        Film update = new Film();
+        update.setId(created.getId());
+        update.setName("Новое название");
+
+        Film updated = controller.updateFilm(update);
+        assertEquals("Новое название", updated.getName());
+        assertEquals("Описание", updated.getDescription());
+        assertEquals(120, updated.getDuration());
+    }
+
+    @Test
+    void shouldFailWhenUpdatingNonExistentFilm() {
+        Film film = new Film();
+        film.setId(9999);
+        film.setName("Несуществующий");
+        assertThrows(NotFoundException.class, () -> controller.updateFilm(film));
     }
 }

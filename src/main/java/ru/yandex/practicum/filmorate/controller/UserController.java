@@ -16,6 +16,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+
     private final Map<Integer, User> users = new HashMap<>();
     private int nextId = 1;
 
@@ -32,15 +33,37 @@ public class UserController {
     }
 
     @PutMapping
-    public User updateUser(@RequestBody User user) {
-        validate(user);
-        if (!users.containsKey(user.getId())) {
-            log.warn("Пользователь с id {} не найден", user.getId());
+    public User updateUser(@RequestBody User newUser) {
+        if (newUser.getId() == null || !users.containsKey(newUser.getId())) {
+            log.warn("Пользователь с id {} не найден", newUser.getId());
             throw new NotFoundException("Пользователь с указанным id не найден");
         }
-        users.put(user.getId(), user);
-        log.info("Обновлён пользователь: {}", user.getLogin());
-        return user;
+        User oldUser = users.get(newUser.getId());
+
+        if (newUser.getEmail() != null) {
+            if (newUser.getEmail().isBlank() || !newUser.getEmail().contains("@")) {
+                throw new ValidationException("Некорректный email");
+            }
+            oldUser.setEmail(newUser.getEmail());
+        }
+        if (newUser.getLogin() != null) {
+            if (newUser.getLogin().isBlank() || newUser.getLogin().contains(" ")) {
+                throw new ValidationException("Логин не может быть пустым или содержать пробелы");
+            }
+            oldUser.setLogin(newUser.getLogin());
+        }
+        if (newUser.getName() != null) {
+            oldUser.setName(newUser.getName().isBlank() ? oldUser.getLogin() : newUser.getName());
+        }
+        if (newUser.getBirthday() != null) {
+            if (newUser.getBirthday().isAfter(LocalDate.now())) {
+                throw new ValidationException("Дата рождения не может быть в будущем");
+            }
+            oldUser.setBirthday(newUser.getBirthday());
+        }
+
+        log.info("Обновлён пользователь: {}", oldUser.getLogin());
+        return oldUser;
     }
 
     @GetMapping
@@ -54,7 +77,7 @@ public class UserController {
             throw new ValidationException("Email не может быть пустым");
         }
         if (!user.getEmail().contains("@")) {
-            log.warn("Валидация не пройдена: email не содержит @");
+            log.warn("Валидация не пройдена: email без @");
             throw new ValidationException("Email должен содержать символ @");
         }
         if (user.getLogin() == null || user.getLogin().isBlank()) {
