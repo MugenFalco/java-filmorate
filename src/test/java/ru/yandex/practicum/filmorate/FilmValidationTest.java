@@ -19,7 +19,12 @@ class FilmValidationTest {
         Film film = new Film();
         film.setName("");
         film.setDuration(120);
-        assertThrows(ValidationException.class, () -> controller.addFilm(film));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.addFilm(film)
+        );
+        assertEquals("Название фильма не может быть пустым", ex.getMessage());
     }
 
     @Test
@@ -28,7 +33,12 @@ class FilmValidationTest {
         film.setName("Название");
         film.setDescription("а".repeat(201));
         film.setDuration(120);
-        assertThrows(ValidationException.class, () -> controller.addFilm(film));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.addFilm(film)
+        );
+        assertEquals("Максимальная длина описания - 200 символов", ex.getMessage());
     }
 
     @Test
@@ -37,7 +47,12 @@ class FilmValidationTest {
         film.setName("Название");
         film.setDuration(120);
         film.setReleaseDate(LocalDate.of(1895, 12, 27));
-        assertThrows(ValidationException.class, () -> controller.addFilm(film));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.addFilm(film)
+        );
+        assertEquals("Дата релиза не может быть раньше 28 декабря 1895 года", ex.getMessage());
     }
 
     @Test
@@ -54,7 +69,12 @@ class FilmValidationTest {
         Film film = new Film();
         film.setName("Название");
         film.setDuration(-1);
-        assertThrows(ValidationException.class, () -> controller.addFilm(film));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.addFilm(film)
+        );
+        assertEquals("Продолжительность фильма должна быть положительным числом", ex.getMessage());
     }
 
     @Test
@@ -81,6 +101,11 @@ class FilmValidationTest {
         Film film = new Film();
         film.setId(9999);
         film.setName("Несуществующий");
-        assertThrows(NotFoundException.class, () -> controller.updateFilm(film));
+
+        NotFoundException ex = assertThrows(
+                NotFoundException.class,
+                () -> controller.updateFilm(film)
+        );
+        assertEquals("Фильм с указанным id не найден", ex.getMessage());
     }
 }

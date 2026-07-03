@@ -19,7 +19,12 @@ class UserValidationTest {
         user.setEmail("");
         user.setLogin("login");
         user.setBirthday(LocalDate.of(1990, 1, 1));
-        assertThrows(ValidationException.class, () -> controller.createUser(user));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.createUser(user)
+        );
+        assertEquals("Email не может быть пустым", ex.getMessage());
     }
 
     @Test
@@ -28,7 +33,12 @@ class UserValidationTest {
         user.setEmail("mailwithoutatsign.ru");
         user.setLogin("login");
         user.setBirthday(LocalDate.of(1990, 1, 1));
-        assertThrows(ValidationException.class, () -> controller.createUser(user));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.createUser(user)
+        );
+        assertEquals("Email должен содержать символ @", ex.getMessage());
     }
 
     @Test
@@ -37,7 +47,12 @@ class UserValidationTest {
         user.setEmail("test@mail.ru");
         user.setLogin("");
         user.setBirthday(LocalDate.of(1990, 1, 1));
-        assertThrows(ValidationException.class, () -> controller.createUser(user));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.createUser(user)
+        );
+        assertEquals("Логин не может быть пустым", ex.getMessage());
     }
 
     @Test
@@ -46,7 +61,12 @@ class UserValidationTest {
         user.setEmail("test@mail.ru");
         user.setLogin("login with spaces");
         user.setBirthday(LocalDate.of(1990, 1, 1));
-        assertThrows(ValidationException.class, () -> controller.createUser(user));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.createUser(user)
+        );
+        assertEquals("Логин не может содержать пробелы", ex.getMessage());
     }
 
     @Test
@@ -55,7 +75,12 @@ class UserValidationTest {
         user.setEmail("test@mail.ru");
         user.setLogin("login");
         user.setBirthday(LocalDate.of(2446, 8, 20));
-        assertThrows(ValidationException.class, () -> controller.createUser(user));
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.createUser(user)
+        );
+        assertEquals("Дата рождения не может быть в будущем", ex.getMessage());
     }
 
     @Test
@@ -65,6 +90,7 @@ class UserValidationTest {
         user.setLogin("login");
         user.setName("");
         user.setBirthday(LocalDate.of(1990, 1, 1));
+
         User result = controller.createUser(user);
         assertEquals("login", result.getName());
     }
