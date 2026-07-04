@@ -7,6 +7,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -19,9 +20,13 @@ public class FilmService {
 
     private final FilmStorage filmStorage;
 
+    private final FilmStorage filmStorage;
+    private final UserStorage userStorage;
+
     @Autowired
-    public FilmService(FilmStorage filmStorage) {
+    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
         this.filmStorage = filmStorage;
+        this.userStorage = userStorage;
     }
 
     public Film add(Film film) {
@@ -67,6 +72,8 @@ public class FilmService {
 
     public Film addLike(Integer filmId, Long userId) {
         Film film = getById(filmId);
+        userStorage.getById(userId.intValue())
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
         film.getLikes().add(userId);
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
         return film;
