@@ -1,7 +1,7 @@
 package ru.yandex.practicum.filmorate.controller;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
@@ -13,17 +13,13 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/films")
+@RequiredArgsConstructor
 public class FilmController {
 
     private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
     private static final int MAX_DESCRIPTION_LENGTH = 200;
 
     private final FilmService filmService;
-
-    @Autowired
-    public FilmController(FilmService filmService) {
-        this.filmService = filmService;
-    }
 
     @PostMapping
     public Film addFilm(@RequestBody Film film) {
@@ -57,8 +53,10 @@ public class FilmController {
     }
 
     @GetMapping("/popular")
-    public List<Film> getPopular(
-            @RequestParam(defaultValue = "10") int count) {
+    public List<Film> getPopular(@RequestParam(defaultValue = "10") int count) {
+        if (count <= 0) {
+            throw new ValidationException("Количество фильмов должно быть положительным");
+        }
         return filmService.getPopular(count);
     }
 

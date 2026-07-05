@@ -1,7 +1,7 @@
 package ru.yandex.practicum.filmorate.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -16,16 +16,13 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FilmService {
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
-
-    @Autowired
-    public FilmService(FilmStorage filmStorage, UserStorage userStorage) {
-        this.filmStorage = filmStorage;
-        this.userStorage = userStorage;
-    }
+    private static final int MAX_DESCRIPTION_LENGTH = 200;
+    private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
 
     public Film add(Film film) {
         return filmStorage.add(film);
@@ -41,13 +38,13 @@ public class FilmService {
             oldFilm.setName(newFilm.getName());
         }
         if (newFilm.getDescription() != null) {
-            if (newFilm.getDescription().length() > 200) {
+            if (newFilm.getDescription().length() > MAX_DESCRIPTION_LENGTH) {
                 throw new ValidationException("Максимальная длина описания — 200 символов");
             }
             oldFilm.setDescription(newFilm.getDescription());
         }
         if (newFilm.getReleaseDate() != null) {
-            if (newFilm.getReleaseDate().isBefore(LocalDate.of(1895, 12, 28))) {
+            if (newFilm.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
                 throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
             }
             oldFilm.setReleaseDate(newFilm.getReleaseDate());
