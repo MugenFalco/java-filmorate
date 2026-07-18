@@ -105,7 +105,7 @@ public class FilmDbStorage implements FilmStorage {
                 (rs, rn) -> new Genre(rs.getInt("id"), rs.getString("name")),
                 filmId);
     }
-    
+
     private Set<Long> getLikesByFilmId(Integer filmId) {
         String sql = "SELECT user_id FROM likes WHERE film_id=?";
         return new HashSet<>(jdbcTemplate.query(sql,
