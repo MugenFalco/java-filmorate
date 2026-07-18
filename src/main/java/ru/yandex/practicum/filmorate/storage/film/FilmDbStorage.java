@@ -13,6 +13,7 @@ import ru.yandex.practicum.filmorate.model.Mpa;
 import java.sql.*;
 import java.sql.Date;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -92,9 +93,16 @@ public class FilmDbStorage implements FilmStorage {
 
     private void saveGenres(Film film) {
         if (film.getGenres() == null || film.getGenres().isEmpty()) return;
+
+        List<Genre> uniqueGenres = film.getGenres().stream()
+                .distinct()
+                .collect(Collectors.toList());
+
         String sql = "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)";
-        film.getGenres().forEach(g ->
+        uniqueGenres.forEach(g ->
                 jdbcTemplate.update(sql, film.getId(), g.getId()));
+
+        film.setGenres(uniqueGenres);
     }
 
     private List<Genre> getGenresByFilmId(Integer filmId) {

@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,5 +28,11 @@ public class ErrorHandler {
     public ErrorResponse handleException(Exception e) {
         log.error("Неожиданная ошибка: {}", e.getMessage());
         return new ErrorResponse("Произошла непредвиденная ошибка");
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleDataIntegrity(DataIntegrityViolationException e) {
+        return new ErrorResponse("Указан несуществующий id");
     }
 }
