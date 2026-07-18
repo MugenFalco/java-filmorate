@@ -1,7 +1,7 @@
 package ru.yandex.practicum.filmorate.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -16,41 +16,53 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class FilmService {
+
+    private static final int MAX_DESCRIPTION_LENGTH = 200;
+    private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
-    private static final int MAX_DESCRIPTION_LENGTH = 200;
-    private static final LocalDate CINEMA_BIRTHDAY = LocalDate.of(1895, 12, 28);
+
+    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
+                       @Qualifier("userDbStorage") UserStorage userStorage) {
+        this.filmStorage = filmStorage;
+        this.userStorage = userStorage;
+    }
 
     public Film add(Film film) {
         return filmStorage.add(film);
     }
 
-    public Film update(Film newFilm) {
-        Film oldFilm = getById(newFilm.getId());
+    public Film update(Film film) {
+        Film oldFilm = getById(film.getId());
 
-        if (newFilm.getName() != null) {
-            if (newFilm.getName().isBlank()) {
+        if (film.getName() != null) {
+            if (film.getName().isBlank()) {
                 throw new ValidationException("Название фильма не может быть пустым");
             }
-            oldFilm.setName(newFilm.getName());
+            oldFilm.setName(film.getName());
         }
-        if (newFilm.getDescription() != null) {
-            if (newFilm.getDescription().length() > MAX_DESCRIPTION_LENGTH) {
-                throw new ValidationException("Максимальная длина описания — 200 символов");
+        if (film.getDescription() != null) {
+            if (film.getDescription().length() > MAX_DESCRIPTION_LENGTH) {
+                throw new ValidationException("Максимальная длина описания — " + MAX_DESCRIPTION_LENGTH + " символов");
             }
-            oldFilm.setDescription(newFilm.getDescription());
+            oldFilm.setDescription(film.getDescription());
         }
-        if (newFilm.getReleaseDate() != null) {
-            if (newFilm.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
+        if (film.getReleaseDate() != null) {
+            if (film.getReleaseDate().isBefore(CINEMA_BIRTHDAY)) {
                 throw new ValidationException("Дата релиза не может быть раньше 28 декабря 1895 года");
             }
-            oldFilm.setReleaseDate(newFilm.getReleaseDate());
+            oldFilm.setReleaseDate(film.getReleaseDate());
         }
-        if (newFilm.getDuration() > 0) {
-            oldFilm.setDuration(newFilm.getDuration());
+        if (film.getDuration() > 0) {
+            oldFilm.setDuration(film.getDuration());
+        }
+        if (film.getMpa() != null) {
+            oldFilm.setMpa(film.getMpa());
+        }
+        if (film.getGenres() != null) {
+            oldFilm.setGenres(film.getGenres());
         }
 
         return filmStorage.update(oldFilm);
@@ -66,12 +78,12 @@ public class FilmService {
     }
 
     public Film addLike(Integer filmId, Long userId) {
-        Film film = getById(filmId);
+        getById(filmId);
         userStorage.getById(userId.intValue())
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
-        film.getLikes().add(userId);
+        filmStorage.addLike(filmId, userId);
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
-        return film;
+        return getById(filmId);
     }
 
     public Film removeLike(Integer filmId, Long userId) {
@@ -79,9 +91,9 @@ public class FilmService {
         if (!film.getLikes().contains(userId)) {
             throw new NotFoundException("Лайк от пользователя " + userId + " не найден");
         }
-        film.getLikes().remove(userId);
+        filmStorage.removeLike(filmId, userId);
         log.info("Пользователь {} удалил лайк у фильма {}", userId, filmId);
-        return film;
+        return getById(filmId);
     }
 
     public List<Film> getPopular(int count) {
@@ -89,5 +101,13 @@ public class FilmService {
                 .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())
                 .limit(count)
                 .collect(Collectors.toList());
+    }
+
+    private void jdbcAddLike(Integer filmId, Long userId) {
+        // лайки теперь в БД — добавим через FilmDbStorage
+    }
+
+    private void jdbcRemoveLike(Integer filmId, Long userId) {
+        // лайки теперь в БД — удалим через FilmDbStorage
     }
 }
