@@ -8,7 +8,6 @@ import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -62,8 +61,6 @@ public class UserService {
     public List<User> getCommonFriends(Integer userId, Integer otherId) {
         getById(userId);
         getById(otherId);
-        return userStorage.getFriends(userId).stream()
-                .filter(userStorage.getFriends(otherId)::contains)
-                .collect(Collectors.toList());
+        return userStorage.getCommonFriends(userId, otherId);
     }
 }

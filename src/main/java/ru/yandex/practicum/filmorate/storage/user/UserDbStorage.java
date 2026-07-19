@@ -3,6 +3,8 @@ package ru.yandex.practicum.filmorate.storage.user;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -11,6 +13,7 @@ import ru.yandex.practicum.filmorate.model.User;
 import java.sql.*;
 import java.sql.Date;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
@@ -18,6 +21,7 @@ import java.util.*;
 public class UserDbStorage implements UserStorage {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     @Override
     public User add(User user) {
@@ -69,9 +73,29 @@ public class UserDbStorage implements UserStorage {
 
     @Override
     public List<User> getAll() {
-        String sql = "SELECT * FROM users";
-        List<User> users = jdbcTemplate.query(sql, this::mapRowToUser);
-        users.forEach(u -> u.setFriends(getFriendsByUserId(u.getId())));
+        List<User> users = jdbcTemplate.query(
+                "SELECT * FROM users", this::mapRowToUser);
+
+        if (users.isEmpty()) return users;
+
+        List<Integer> userIds = users.stream()
+                .map(User::getId)
+                .collect(Collectors.toList());
+
+        String friendsSql = "SELECT user_id, friend_id FROM friendships " +
+                "WHERE user_id IN (:ids)";
+        MapSqlParameterSource params = new MapSqlParameterSource("ids", userIds);
+
+        Map<Integer, Set<Long>> friendsByUser = new HashMap<>();
+        namedJdbcTemplate.query(friendsSql, params, rs -> {
+            int userId = rs.getInt("user_id");
+            friendsByUser.computeIfAbsent(userId, k -> new HashSet<>())
+                    .add(rs.getLong("friend_id"));
+        });
+
+        users.forEach(u -> u.setFriends(
+                friendsByUser.getOrDefault(u.getId(), new HashSet<>())));
+
         return users;
     }
 
@@ -114,5 +138,13 @@ public class UserDbStorage implements UserStorage {
                 "JOIN friendships f ON u.id = f.friend_id " +
                 "WHERE f.user_id=?";
         return jdbcTemplate.query(sql, this::mapRowToUser, userId);
+    }
+
+    @Override
+    public List<User> getCommonFriends(Integer userId, Integer otherId) {
+        String sql = "SELECT u.* FROM users u " +
+                "JOIN friendships f1 ON u.id = f1.friend_id AND f1.user_id = ? " +
+                "JOIN friendships f2 ON u.id = f2.friend_id AND f2.user_id = ?";
+        return jdbcTemplate.query(sql, this::mapRowToUser, userId, otherId);
     }
 }

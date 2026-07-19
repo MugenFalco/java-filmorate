@@ -77,37 +77,24 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException("Фильм с указанным id не найден"));
     }
 
-    public Film addLike(Integer filmId, Long userId) {
+    public void addLike(Integer filmId, Long userId) {
         getById(filmId);
         userStorage.getById(userId.intValue())
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
         filmStorage.addLike(filmId, userId);
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
-        return getById(filmId);
     }
 
-    public Film removeLike(Integer filmId, Long userId) {
+    public void removeLike(Integer filmId, Long userId) {
         Film film = getById(filmId);
         if (!film.getLikes().contains(userId)) {
             throw new NotFoundException("Лайк от пользователя " + userId + " не найден");
         }
         filmStorage.removeLike(filmId, userId);
         log.info("Пользователь {} удалил лайк у фильма {}", userId, filmId);
-        return getById(filmId);
     }
 
     public List<Film> getPopular(int count) {
-        return filmStorage.getAll().stream()
-                .sorted(Comparator.comparingInt((Film f) -> f.getLikes().size()).reversed())
-                .limit(count)
-                .collect(Collectors.toList());
-    }
-
-    private void jdbcAddLike(Integer filmId, Long userId) {
-        // лайки теперь в БД — добавим через FilmDbStorage
-    }
-
-    private void jdbcRemoveLike(Integer filmId, Long userId) {
-        // лайки теперь в БД — удалим через FilmDbStorage
+        return filmStorage.getPopular(count);
     }
 }
