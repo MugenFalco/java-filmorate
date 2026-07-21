@@ -84,43 +84,31 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getAll() {
-        // 1 запрос — все фильмы
         String sql = "SELECT f.*, m.name AS mpa_name FROM films f " +
                 "JOIN mpa_ratings m ON f.mpa_id = m.id";
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm);
 
         if (films.isEmpty()) return films;
 
+        // жанры — через новый метод
+        loadGenresForFilms(films);
+
+        // лайки — остаются здесь
         List<Integer> filmIds = films.stream()
                 .map(Film::getId)
                 .collect(Collectors.toList());
-
-        String genreSql = "SELECT fg.film_id, g.id, g.name FROM genres g " +
-                "JOIN film_genres fg ON g.id = fg.genre_id " +
-                "WHERE fg.film_id IN (:ids) ORDER BY g.id";
-
-        String likesSql = "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)";
-
         MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
 
-        Map<Integer, List<Genre>> genresByFilm = new HashMap<>();
-        namedJdbcTemplate.query(genreSql, params, rs -> {
-            int filmId = rs.getInt("film_id");
-            genresByFilm.computeIfAbsent(filmId, k -> new ArrayList<>())
-                    .add(new Genre(rs.getInt("id"), rs.getString("name")));
-        });
-
         Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
-        namedJdbcTemplate.query(likesSql, params, rs -> {
-            int filmId = rs.getInt("film_id");
-            likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
-                    .add(rs.getLong("user_id"));
-        });
+        namedJdbcTemplate.query("SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                params, rs -> {
+                    int filmId = rs.getInt("film_id");
+                    likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                            .add(rs.getLong("user_id"));
+                });
 
-        films.forEach(f -> {
-            f.setGenres(genresByFilm.getOrDefault(f.getId(), new ArrayList<>()));
-            f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>()));
-        });
+        films.forEach(f -> f.setLikes(
+                likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
 
         return films;
     }
@@ -197,6 +185,14 @@ public class FilmDbStorage implements FilmStorage {
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, count);
         if (films.isEmpty()) return films;
 
+        loadGenresForFilms(films);
+
+        return films;
+    }
+
+    private void loadGenresForFilms(List<Film> films) {
+        if (films.isEmpty()) return;
+
         List<Integer> filmIds = films.stream()
                 .map(Film::getId)
                 .collect(Collectors.toList());
@@ -216,7 +212,5 @@ public class FilmDbStorage implements FilmStorage {
 
         films.forEach(f -> f.setGenres(
                 genresByFilm.getOrDefault(f.getId(), new ArrayList<>())));
-
-        return films;
     }
 }
