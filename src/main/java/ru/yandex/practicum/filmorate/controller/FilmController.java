@@ -58,7 +58,6 @@ public class FilmController {
             @RequestParam(required = false) Integer genreId,
             @RequestParam(required = false) Integer year
     ) {
-        // Валидация вынесена в сервис
         return filmService.getPopular(count, genreId, year);
     }
 
