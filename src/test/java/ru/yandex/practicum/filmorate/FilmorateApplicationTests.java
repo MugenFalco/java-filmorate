@@ -6,9 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
@@ -17,15 +19,17 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, UserDbStorage.class})
+@Import({FilmDbStorage.class, UserDbStorage.class, DirectorDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
     private final UserDbStorage userStorage;
+    private final DirectorDbStorage directorStorage;
 
     // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
 
@@ -160,5 +164,34 @@ class FilmorateApplicationTests {
         film.setDuration(120);
         film.setMpa(new Mpa(1, "G"));
         return film;
+    }
+
+    @Test
+    void testGetFilmsByDirectorSortedByLikes() {
+        // создаём режиссёра
+        Director director = directorStorage.add(new Director(null, "Тест режиссёр"));
+
+        // создаём два фильма
+        Film film1 = makeFilm("Фильм 1");
+        film1.setDirectors(List.of(director));
+        Film created1 = filmStorage.add(film1);
+
+        Film film2 = makeFilm("Фильм 2");
+        film2.setDirectors(List.of(director));
+        Film created2 = filmStorage.add(film2);
+
+        // создаём пользователей и ставим лайки
+        User user1 = userStorage.add(makeUser("u1@mail.ru", "user1"));
+        User user2 = userStorage.add(makeUser("u2@mail.ru", "user2"));
+
+        filmStorage.addLike(created1.getId(), user1.getId().longValue());
+        filmStorage.addLike(created1.getId(), user2.getId().longValue()); // у film1 два лайка
+        filmStorage.addLike(created2.getId(), user1.getId().longValue()); // у film2 один лайк
+
+        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
+
+        // film1 должен быть первым (больше лайков)
+        assertEquals(created1.getId(), result.get(0).getId());
+        assertEquals(created2.getId(), result.get(1).getId());
     }
 }

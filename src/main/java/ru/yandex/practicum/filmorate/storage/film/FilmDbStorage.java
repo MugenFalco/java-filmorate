@@ -70,7 +70,7 @@ public class FilmDbStorage implements FilmStorage {
         saveDirectors(film);
 
         log.info("Обновлён фильм: {}", film.getName());
-        return film;
+        return getById(film.getId()).orElseThrow();
     }
 
     @Override
@@ -197,9 +197,9 @@ public class FilmDbStorage implements FilmStorage {
 
         String orderBy;
         if ("year".equalsIgnoreCase(sortBy)) {
-            orderBy = "EXTRACT(YEAR FROM f.release_date) ASC";
+            orderBy = "EXTRACT(YEAR FROM f.release_date) DESC";
         } else {
-            orderBy = "COUNT(l.user_id) ASC";
+            orderBy = "COUNT(l.user_id) DESC";
         }
 
         String sql = "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
@@ -214,6 +214,11 @@ public class FilmDbStorage implements FilmStorage {
         log.debug("Executing films by director query: {}", sql);
 
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, directorId);
+
+        log.debug("Найдено фильмов: {}", films.size());
+        for (Film f : films) {
+            log.debug("Фильм id={}, name={}", f.getId(), f.getName());
+        }
 
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
