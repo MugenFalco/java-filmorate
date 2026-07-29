@@ -195,11 +195,9 @@ public class FilmDbStorage implements FilmStorage {
 
         String orderBy;
         if ("year".equalsIgnoreCase(sortBy)) {
-            orderBy = "EXTRACT(YEAR FROM f.release_date)";
-        } else if ("likes".equalsIgnoreCase(sortBy)) {
-            orderBy = "COUNT(l.user_id)";
+            orderBy = "EXTRACT(YEAR FROM f.release_date) DESC";
         } else {
-            throw new IllegalArgumentException("Некорректный параметр сортировки. Используйте 'year' или 'likes'");
+            orderBy = "COUNT(l.user_id) DESC";
         }
 
         String sql = "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
@@ -209,7 +207,7 @@ public class FilmDbStorage implements FilmStorage {
                 "LEFT JOIN likes l ON f.id = l.film_id " +
                 "WHERE fd.director_id = ? " +
                 "GROUP BY f.id, m.id, m.name " +
-                "ORDER BY " + orderBy + " DESC";
+                "ORDER BY " + orderBy;
 
         log.debug("Executing films by director query: {}", sql);
 

@@ -97,12 +97,10 @@ public class InMemoryFilmStorage implements FilmStorage {
                         film.getDirectors().stream().anyMatch(d -> d.getId().equals(directorId)))
                 .sorted((f1, f2) -> {
                     if ("year".equalsIgnoreCase(sortBy)) {
-                        // Сортировка по году выпуска
                         int year1 = f1.getReleaseDate() != null ? f1.getReleaseDate().getYear() : 0;
                         int year2 = f2.getReleaseDate() != null ? f2.getReleaseDate().getYear() : 0;
                         return Integer.compare(year2, year1);
                     } else {
-                        // Сортировка по количеству лайков (по умолчанию)
                         return Integer.compare(f2.getLikes().size(), f1.getLikes().size());
                     }
                 })
