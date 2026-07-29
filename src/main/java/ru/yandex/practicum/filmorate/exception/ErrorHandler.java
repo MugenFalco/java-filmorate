@@ -26,15 +26,15 @@ public class ErrorHandler {
     }
 
     @ExceptionHandler
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleDataIntegrity(DataIntegrityViolationException e) {
+        return new ErrorResponse("Указан несуществующий id");
+    }
+
+    @ExceptionHandler
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleException(Exception e) {
         log.error("Неожиданная ошибка: {}", e.getMessage(), e);
         return new ErrorResponse("Произошла непредвиденная ошибка");
-    }
-
-    @ExceptionHandler
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ErrorResponse handleDataIntegrity(DataIntegrityViolationException e) {
-        return new ErrorResponse("Указан несуществующий id");
     }
 }

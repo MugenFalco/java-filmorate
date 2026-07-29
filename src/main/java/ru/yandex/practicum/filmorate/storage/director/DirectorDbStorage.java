@@ -54,7 +54,6 @@ public class DirectorDbStorage implements DirectorStorage {
 
     @Override
     public void delete(Integer id) {
-        // Проверяем, существует ли режиссёр
         getById(id).orElseThrow(() ->
                 new NotFoundException("Режиссёр с id " + id + " не найден"));
 
