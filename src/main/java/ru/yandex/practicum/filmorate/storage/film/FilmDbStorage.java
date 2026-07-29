@@ -98,8 +98,6 @@ public class FilmDbStorage implements FilmStorage {
                 .map(Film::getId)
                 .collect(Collectors.toList());
 
-        if (filmIds.isEmpty()) return films;
-
         MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
         Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
         namedJdbcTemplate.query(
