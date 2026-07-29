@@ -42,12 +42,11 @@ public class DirectorDbStorage implements DirectorStorage {
 
     @Override
     public Director update(Director director) {
-        String sql = "UPDATE directors SET name=? WHERE id=?";
-        int rows = jdbcTemplate.update(sql, director.getName(), director.getId());
+        getById(director.getId()).orElseThrow(() ->
+                new NotFoundException("Режиссёр с id " + director.getId() + " не найден"));
 
-        if (rows == 0) {
-            throw new NotFoundException("Режиссёр с id " + director.getId() + " не найден");
-        }
+        String sql = "UPDATE directors SET name=? WHERE id=?";
+        jdbcTemplate.update(sql, director.getName(), director.getId());
 
         log.info("Обновлён режиссёр: {}", director.getName());
         return director;
@@ -55,6 +54,7 @@ public class DirectorDbStorage implements DirectorStorage {
 
     @Override
     public void delete(Integer id) {
+        // Проверяем, существует ли режиссёр
         getById(id).orElseThrow(() ->
                 new NotFoundException("Режиссёр с id " + id + " не найден"));
 

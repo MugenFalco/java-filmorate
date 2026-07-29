@@ -186,7 +186,6 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
-        // Проверяем, существует ли режиссёр
         String checkSql = "SELECT COUNT(*) FROM directors WHERE id = ?";
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, directorId);
         if (count == 0) {
