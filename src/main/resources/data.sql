@@ -10,7 +10,3 @@ MERGE INTO genres (id, name) VALUES (3, 'Мультфильм');
 MERGE INTO genres (id, name) VALUES (4, 'Триллер');
 MERGE INTO genres (id, name) VALUES (5, 'Документальный');
 MERGE INTO genres (id, name) VALUES (6, 'Боевик');
-
-MERGE INTO directors (id, name) VALUES (1, 'Кристофер Нолан');
-MERGE INTO directors (id, name) VALUES (2, 'Квентин Тарантино');
-MERGE INTO directors (id, name) VALUES (3, 'Стивен Спилберг');
