@@ -49,7 +49,7 @@ public class FilmDbStorage implements FilmStorage {
         saveGenres(film);
         saveDirectors(film);
         log.info("Добавлен фильм: {}", film.getName());
-        return film;
+        return getById(film.getId()).orElseThrow();
     }
 
     @Override
