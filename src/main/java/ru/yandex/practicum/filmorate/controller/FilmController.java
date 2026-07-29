@@ -78,4 +78,10 @@ public class FilmController {
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
     }
+
+    @GetMapping("/common")
+    public List<Film> getCommonFilms(@RequestParam Integer userId,
+                                     @RequestParam Integer friendId) {
+        return filmService.getCommonFilms(userId, friendId);
+    }
 }

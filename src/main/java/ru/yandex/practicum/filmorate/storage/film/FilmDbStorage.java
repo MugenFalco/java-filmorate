@@ -213,4 +213,18 @@ public class FilmDbStorage implements FilmStorage {
         films.forEach(f -> f.setGenres(
                 genresByFilm.getOrDefault(f.getId(), new ArrayList<>())));
     }
+
+    public List<Film> getCommonFilms(Integer userId, Integer friendId) {
+        String sql = "SELECT f.*, m.name AS mpa_name FROM films f " +
+                "JOIN mpa_ratings m ON f.mpa_id = m.id " +
+                "JOIN likes l1 ON f.id = l1.film_id AND l1.user_id = ? " +
+                "JOIN likes l2 ON f.id = l2.film_id AND l2.user_id = ? " +
+                "LEFT JOIN likes l ON f.id = l.film_id " +
+                "GROUP BY f.id " +
+                "ORDER BY COUNT(l.user_id) DESC";
+        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, userId, friendId);
+        if (films.isEmpty()) return films;
+        loadGenresForFilms(films);
+        return films;
+    }
 }
