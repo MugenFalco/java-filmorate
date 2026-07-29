@@ -113,4 +113,29 @@ class FilmValidationTest {
         );
         assertEquals("Фильм с указанным id не найден", ex.getMessage());
     }
+
+    @Test
+    void shouldDeleteFilm() {
+        Film film = new Film();
+        film.setName("Фильм для удаления");
+        film.setDuration(120);
+        Film created = controller.addFilm(film);
+
+        controller.deleteFilm(created.getId());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> controller.getFilmById(created.getId())
+        );
+    }
+
+    @Test
+    void shouldFailWhenDeletingNonExistentFilm() {
+        NotFoundException ex = assertThrows(
+                NotFoundException.class,
+                () -> controller.deleteFilm(9999)
+        );
+
+        assertEquals("Фильм с указанным id не найден", ex.getMessage());
+    }
 }
