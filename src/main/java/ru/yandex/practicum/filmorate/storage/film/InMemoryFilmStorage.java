@@ -46,14 +46,43 @@ public class InMemoryFilmStorage implements FilmStorage {
 
     @Override
     public void addLike(Integer filmId, Long userId) {
+        // In-memory реализация
+        Film film = films.get(filmId);
+        if (film != null) {
+            film.getLikes().add(userId);
+        }
     }
 
     @Override
     public void removeLike(Integer filmId, Long userId) {
+        Film film = films.get(filmId);
+        if (film != null) {
+            film.getLikes().remove(userId);
+        }
     }
 
     @Override
-    public List<Film> getPopular(int count) {
-        return new ArrayList<>();
+    public List<Film> getPopular(int count, Integer genreId, Integer year) {
+        return films.values().stream()
+                .filter(film -> {
+                    if (genreId != null) {
+                        boolean hasGenre = film.getGenres() != null &&
+                                film.getGenres().stream().anyMatch(g -> g.getId().equals(genreId));
+                        if (!hasGenre) return false;
+                    }
+                    if (year != null) {
+                        if (film.getReleaseDate() == null ||
+                                film.getReleaseDate().getYear() != year) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .sorted((f1, f2) -> Integer.compare(
+                        f2.getLikes().size(),
+                        f1.getLikes().size()
+                ))
+                .limit(count)
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
 }

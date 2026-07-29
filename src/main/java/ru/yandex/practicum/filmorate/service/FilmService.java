@@ -53,7 +53,7 @@ public class FilmService {
             }
             oldFilm.setReleaseDate(film.getReleaseDate());
         }
-        if (film.getDuration() > 0) {
+        if (film.getDuration() >= 0) {
             oldFilm.setDuration(film.getDuration());
         }
         if (film.getMpa() != null) {
@@ -92,7 +92,17 @@ public class FilmService {
         log.info("Пользователь {} удалил лайк у фильма {}", userId, filmId);
     }
 
-    public List<Film> getPopular(int count) {
-        return filmStorage.getPopular(count);
+    public List<Film> getPopular(int count, Integer genreId, Integer year) {
+        if (count <= 0) {
+            throw new ValidationException("Количество фильмов должно быть положительным");
+        }
+        if (year != null && (year < 1895 || year > LocalDate.now().getYear())) {
+            throw new ValidationException("Год должен быть между 1895 и " + LocalDate.now().getYear());
+        }
+        if (genreId != null && genreId <= 0) {
+            throw new ValidationException("ID жанра должен быть положительным");
+        }
+
+        return filmStorage.getPopular(count, genreId, year);
     }
 }

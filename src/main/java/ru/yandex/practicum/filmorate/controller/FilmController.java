@@ -53,11 +53,13 @@ public class FilmController {
     }
 
     @GetMapping("/popular")
-    public List<Film> getPopular(@RequestParam(defaultValue = "10") int count) {
-        if (count <= 0) {
-            throw new ValidationException("Количество фильмов должно быть положительным");
-        }
-        return filmService.getPopular(count);
+    public List<Film> getPopular(
+            @RequestParam(defaultValue = "10") int count,
+            @RequestParam(required = false) Integer genreId,
+            @RequestParam(required = false) Integer year
+    ) {
+        // Валидация вынесена в сервис
+        return filmService.getPopular(count, genreId, year);
     }
 
     private void validate(Film film) {
