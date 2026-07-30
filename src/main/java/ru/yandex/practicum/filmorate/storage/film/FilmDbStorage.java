@@ -8,8 +8,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
@@ -47,7 +45,6 @@ public class FilmDbStorage implements FilmStorage {
 
         film.setId(Objects.requireNonNull(keyHolder.getKey()).intValue());
         saveGenres(film);
-        saveDirectors(film);
         log.info("Добавлен фильм: {}", film.getName());
         return film;
     }
@@ -65,10 +62,6 @@ public class FilmDbStorage implements FilmStorage {
 
         jdbcTemplate.update("DELETE FROM film_genres WHERE film_id=?", film.getId());
         saveGenres(film);
-
-        jdbcTemplate.update("DELETE FROM film_directors WHERE film_id=?", film.getId());
-        saveDirectors(film);
-
         log.info("Обновлён фильм: {}", film.getName());
         return film;
     }
@@ -87,7 +80,6 @@ public class FilmDbStorage implements FilmStorage {
         if (films.isEmpty()) return Optional.empty();
         Film film = films.get(0);
         film.setGenres(getGenresByFilmId(film.getId()));
-        film.setDirectors(getDirectorsByFilmId(film.getId()));
         film.setLikes(getLikesByFilmId(film.getId()));
         return Optional.of(film);
     }
@@ -101,28 +93,24 @@ public class FilmDbStorage implements FilmStorage {
         if (films.isEmpty()) return films;
 
         loadGenresForFilms(films);
-        loadDirectorsForFilms(films);
 
         List<Integer> filmIds = films.stream()
                 .map(Film::getId)
                 .collect(Collectors.toList());
 
-        if (!filmIds.isEmpty()) {
-            MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
-            Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
-            namedJdbcTemplate.query(
-                    "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
-                    params,
-                    rs -> {
-                        int filmId = rs.getInt("film_id");
-                        likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
-                                .add(rs.getLong("user_id"));
-                    }
-            );
-            films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
-        } else {
-            films.forEach(f -> f.setLikes(new HashSet<>()));
-        }
+        MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
+        Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
+        namedJdbcTemplate.query(
+                "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                params,
+                rs -> {
+                    int filmId = rs.getInt("film_id");
+                    likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                            .add(rs.getLong("user_id"));
+                }
+        );
+
+        films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
         return films;
     }
 
@@ -171,7 +159,7 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         sql.append("GROUP BY f.id, m.id, m.name ");
-        sql.append("ORDER BY COUNT(l.user_id) DESC, f.id ASC ");  // ← ИСПРАВЛЕНО
+        sql.append("ORDER BY COUNT(l.user_id) DESC, f.id ASC ");
         sql.append("LIMIT ?");
         params.add(count);
 
@@ -181,43 +169,6 @@ public class FilmDbStorage implements FilmStorage {
 
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
-            loadDirectorsForFilms(films);
-        }
-
-        return films;
-    }
-
-    @Override
-    public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
-        String checkSql = "SELECT COUNT(*) FROM directors WHERE id = ?";
-        Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, directorId);
-        if (count == 0) {
-            throw new NotFoundException("Режиссёр с id " + directorId + " не найден");
-        }
-
-        String orderBy;
-        if ("year".equalsIgnoreCase(sortBy)) {
-            orderBy = "EXTRACT(YEAR FROM f.release_date) DESC";
-        } else {
-            orderBy = "COUNT(l.user_id) DESC";
-        }
-
-        String sql = "SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count " +
-                "FROM films f " +
-                "JOIN mpa_ratings m ON f.mpa_id = m.id " +
-                "JOIN film_directors fd ON f.id = fd.film_id " +
-                "LEFT JOIN likes l ON f.id = l.film_id " +
-                "WHERE fd.director_id = ? " +
-                "GROUP BY f.id, m.id, m.name " +
-                "ORDER BY " + orderBy;
-
-        log.debug("Executing films by director query: {}", sql);
-
-        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, directorId);
-
-        if (!films.isEmpty()) {
-            loadGenresForFilms(films);
-            loadDirectorsForFilms(films);
         }
 
         return films;
@@ -243,41 +194,12 @@ public class FilmDbStorage implements FilmStorage {
         film.setGenres(uniqueGenres);
     }
 
-    private void saveDirectors(Film film) {
-        if (film.getDirectors() == null || film.getDirectors().isEmpty()) return;
-
-        List<Director> uniqueDirectors = film.getDirectors().stream()
-                .distinct()
-                .collect(Collectors.toList());
-
-        jdbcTemplate.batchUpdate(
-                "INSERT INTO film_directors (film_id, director_id) VALUES (?, ?)",
-                uniqueDirectors,
-                uniqueDirectors.size(),
-                (ps, director) -> {
-                    ps.setInt(1, film.getId());
-                    ps.setInt(2, director.getId());
-                }
-        );
-
-        film.setDirectors(uniqueDirectors);
-    }
-
     private List<Genre> getGenresByFilmId(Integer filmId) {
         String sql = "SELECT g.* FROM genres g " +
                 "JOIN film_genres fg ON g.id = fg.genre_id " +
                 "WHERE fg.film_id=? ORDER BY g.id";
         return jdbcTemplate.query(sql,
                 (rs, rn) -> new Genre(rs.getInt("id"), rs.getString("name")),
-                filmId);
-    }
-
-    private List<Director> getDirectorsByFilmId(Integer filmId) {
-        String sql = "SELECT d.* FROM directors d " +
-                "JOIN film_directors fd ON d.id = fd.director_id " +
-                "WHERE fd.film_id=? ORDER BY d.id";
-        return jdbcTemplate.query(sql,
-                (rs, rn) -> new Director(rs.getInt("id"), rs.getString("name")),
                 filmId);
     }
 
@@ -328,32 +250,6 @@ public class FilmDbStorage implements FilmStorage {
 
         films.forEach(f -> f.setGenres(
                 genresByFilm.getOrDefault(f.getId(), new ArrayList<>())
-        ));
-    }
-
-    private void loadDirectorsForFilms(List<Film> films) {
-        if (films.isEmpty()) return;
-
-        List<Integer> filmIds = films.stream()
-                .map(Film::getId)
-                .collect(Collectors.toList());
-
-        MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
-        Map<Integer, List<Director>> directorsByFilm = new HashMap<>();
-        namedJdbcTemplate.query(
-                "SELECT fd.film_id, d.id, d.name FROM directors d " +
-                        "JOIN film_directors fd ON d.id = fd.director_id " +
-                        "WHERE fd.film_id IN (:ids) ORDER BY d.id",
-                params,
-                rs -> {
-                    int filmId = rs.getInt("film_id");
-                    directorsByFilm.computeIfAbsent(filmId, k -> new ArrayList<>())
-                            .add(new Director(rs.getInt("id"), rs.getString("name")));
-                }
-        );
-
-        films.forEach(f -> f.setDirectors(
-                directorsByFilm.getOrDefault(f.getId(), new ArrayList<>())
         ));
     }
 }
