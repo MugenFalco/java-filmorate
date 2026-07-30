@@ -12,9 +12,19 @@ import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 
-import java.sql.*;
 import java.sql.Date;
-import java.util.*;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -167,10 +177,12 @@ public class FilmDbStorage implements FilmStorage {
         );
     }
 
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
+    @Override
+    public int removeLike(Integer filmId, Long userId) {
+        return jdbcTemplate.update(
                 "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
+                filmId,
+                userId
         );
     }
 

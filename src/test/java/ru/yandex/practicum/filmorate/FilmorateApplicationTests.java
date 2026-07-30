@@ -7,13 +7,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.model.Event;
+import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.EventService;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.ReviewService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
@@ -23,16 +28,22 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, UserDbStorage.class, ReviewDbStorage.class})
+@Import({FilmDbStorage.class, UserDbStorage.class, ReviewDbStorage.class, EventDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
     private final UserDbStorage userStorage;
     private final ReviewDbStorage reviewStorage;
+    private final EventDbStorage eventStorage;
+
+    private EventService eventService;
+    private FilmService filmService;
+    private UserService userService;
     private ReviewService reviewService;
 
     // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
@@ -276,6 +287,114 @@ class FilmorateApplicationTests {
         ).isZero();
     }
 
+    // ===== ТЕСТЫ ЛЕНТЫ СОБЫТИЙ =====
+    @Test
+    void testFeedContainsEventsInChronologicalOrder() {
+        User user = userStorage.add(
+                makeUser("feed@ya.ru", "feed-user")
+        );
+        User friend = userStorage.add(
+                makeUser("friend@ya.ru", "feed-friend")
+        );
+        Film film = filmStorage.add(
+                makeFilm("Фильм для ленты")
+        );
+
+        // Добавляем и удаляем друга
+        userService.addFriend(user.getId(), friend.getId());
+        userService.removeFriend(user.getId(), friend.getId());
+
+        // Добавляем, обновляем и удаляем отзыв
+        Review review = reviewService.add(
+                makeReview(
+                        "Первоначальный отзыв",
+                        true,
+                        user.getId(),
+                        film.getId()
+                )
+        );
+        Long reviewId = review.getReviewId();
+
+        review.setContent("Изменённый отзыв");
+        review.setIsPositive(false);
+        reviewService.update(review);
+        reviewService.delete(reviewId);
+
+        filmService.addLike(
+                film.getId(),
+                user.getId().longValue()
+        );
+        filmService.removeLike(
+                film.getId(),
+                user.getId().longValue()
+        );
+
+        // Получаем ленту событий и проверяем её содержимое
+        List<Event> feed = eventService.getFeed(user.getId());
+
+        // Проверяем, что лента содержит 7 событий и все они принадлежат пользователю
+        assertThat(feed).hasSize(7);
+        assertThat(feed)
+                .extracting(Event::getUserId)
+                .containsOnly(user.getId());
+
+        // Проверяем, что события в ленте соответствуют ожидаемым типам и операциям
+        assertThat(feed)
+                .extracting(
+                        Event::getEventType,
+                        Event::getOperation,
+                        Event::getEntityId
+                )
+                .containsExactly(
+                        tuple(
+                                EventType.FRIEND,
+                                Operation.ADD,
+                                friend.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.FRIEND,
+                                Operation.REMOVE,
+                                friend.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.ADD,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.UPDATE,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.REMOVE,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.LIKE,
+                                Operation.ADD,
+                                film.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.LIKE,
+                                Operation.REMOVE,
+                                film.getId().longValue()
+                        )
+                );
+
+        // Проверяем, что события в ленте отсортированы по времени
+        assertThat(feed)
+                .extracting(Event::getTimestamp)
+                .isSorted();
+
+        // Проверяем, что у всех событий есть уникальные идентификаторы
+        assertThat(feed)
+                .extracting(Event::getEventId)
+                .doesNotContainNull()
+                .doesNotHaveDuplicates();
+    }
+
     // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
     private User makeUser(String email, String login) {
@@ -313,17 +432,27 @@ class FilmorateApplicationTests {
 
     @BeforeEach
     void setUp() {
-        FilmService filmService = new FilmService(
-                filmStorage,
+        eventService = new EventService(
+                eventStorage,
                 userStorage
         );
-        UserService userService = new UserService(userStorage);
+
+        filmService = new FilmService(
+                filmStorage,
+                userStorage,
+                eventService
+        );
+
+        userService = new UserService(
+                userStorage,
+                eventService
+        );
 
         reviewService = new ReviewService(
                 reviewStorage,
                 filmService,
-                userService
+                userService,
+                eventService
         );
-
     }
 }
