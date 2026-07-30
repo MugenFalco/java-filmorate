@@ -70,7 +70,7 @@ public class FilmDbStorage implements FilmStorage {
         saveDirectors(film);
 
         log.info("Обновлён фильм: {}", film.getName());
-        return getById(film.getId()).orElseThrow();
+        return film;
     }
 
     @Override
@@ -306,7 +306,6 @@ public class FilmDbStorage implements FilmStorage {
         if (mpaId != null && mpaName != null) {
             film.setMpa(new Mpa(mpaId, mpaName));
         }
-
         return film;
     }
 
