@@ -197,7 +197,7 @@ public class FilmDbStorage implements FilmStorage {
 
         String orderBy;
         if ("year".equalsIgnoreCase(sortBy)) {
-            orderBy = "EXTRACT(YEAR FROM f.release_date) DESC";
+            orderBy = "EXTRACT(YEAR FROM f.release_date) ASC";
         } else {
             orderBy = "COUNT(l.user_id) DESC";
         }
