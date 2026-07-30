@@ -27,8 +27,6 @@ class FilmorateApplicationTests {
     private final FilmDbStorage filmStorage;
     private final UserDbStorage userStorage;
 
-    // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
-
     @Test
     void testCreateUser() {
         User user = makeUser("test@mail.ru", "login");
@@ -140,8 +138,6 @@ class FilmorateApplicationTests {
         Optional<Film> unliked = filmStorage.getById(film.getId());
         assertThat(unliked.get().getLikes()).isEmpty();
     }
-
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
     private User makeUser(String email, String login) {
         User user = new User();

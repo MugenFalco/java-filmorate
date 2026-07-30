@@ -2,9 +2,11 @@ package ru.yandex.practicum.filmorate.storage.film;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -23,6 +25,9 @@ public class InMemoryFilmStorage implements FilmStorage {
 
     @Override
     public Film update(Film film) {
+        if (!films.containsKey(film.getId())) {
+            throw new NotFoundException("Фильм с id " + film.getId() + " не найден");
+        }
         films.put(film.getId(), film);
         log.info("Обновлён фильм: {}", film.getName());
         return film;
@@ -77,11 +82,33 @@ public class InMemoryFilmStorage implements FilmStorage {
                     }
                     return true;
                 })
-                .sorted((f1, f2) -> Integer.compare(
-                        f2.getLikes().size(),
-                        f1.getLikes().size()
-                ))
+                .sorted((f1, f2) -> {
+                    // Сначала по количеству лайков (по убыванию)
+                    int likesCompare = Integer.compare(f2.getLikes().size(), f1.getLikes().size());
+                    if (likesCompare != 0) {
+                        return likesCompare;
+                    }
+                    // При одинаковом количестве лайков — по id (по возрастанию)
+                    return Integer.compare(f1.getId(), f2.getId());
+                })
                 .limit(count)
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+    }
+
+    @Override
+    public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
+        return films.values().stream()
+                .filter(film -> film.getDirectors() != null &&
+                        film.getDirectors().stream().anyMatch(d -> d.getId().equals(directorId)))
+                .sorted((f1, f2) -> {
+                    if ("year".equalsIgnoreCase(sortBy)) {
+                        int year1 = f1.getReleaseDate() != null ? f1.getReleaseDate().getYear() : 0;
+                        int year2 = f2.getReleaseDate() != null ? f2.getReleaseDate().getYear() : 0;
+                        return Integer.compare(year2, year1);
+                    } else {
+                        return Integer.compare(f2.getLikes().size(), f1.getLikes().size());
+                    }
+                })
+                .collect(Collectors.toList());
     }
 }
