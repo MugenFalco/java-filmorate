@@ -35,8 +35,6 @@ class FilmorateApplicationTests {
     private final ReviewDbStorage reviewStorage;
     private ReviewService reviewService;
 
-    // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
-
     @Test
     void testCreateUser() {
         User user = makeUser("test@mail.ru", "login");
@@ -94,8 +92,6 @@ class FilmorateApplicationTests {
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).isEmpty();
     }
-
-    // ===== ТЕСТЫ ФИЛЬМОВ =====
 
     @Test
     void testCreateFilm() {
@@ -275,8 +271,6 @@ class FilmorateApplicationTests {
                 ).getUseful()
         ).isZero();
     }
-
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
     private User makeUser(String email, String login) {
         User user = new User();
