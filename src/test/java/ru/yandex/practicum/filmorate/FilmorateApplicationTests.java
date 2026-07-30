@@ -161,4 +161,32 @@ class FilmorateApplicationTests {
         film.setMpa(new Mpa(1, "G"));
         return film;
     }
+
+    @Test
+    void testGetCommonFilms() {
+        // создаём двух пользователей
+        User user1 = userStorage.add(makeUser("common1@mail.ru", "common1"));
+        User user2 = userStorage.add(makeUser("common2@mail.ru", "common2"));
+
+        // создаём три фильма
+        Film film1 = filmStorage.add(makeFilm("Общий фильм 1"));
+        Film film2 = filmStorage.add(makeFilm("Общий фильм 2"));
+        Film film3 = filmStorage.add(makeFilm("Только у первого"));
+
+        // оба лайкают film1 и film2
+        filmStorage.addLike(film1.getId(), user1.getId().longValue());
+        filmStorage.addLike(film1.getId(), user2.getId().longValue());
+        filmStorage.addLike(film2.getId(), user1.getId().longValue());
+        filmStorage.addLike(film2.getId(), user2.getId().longValue());
+
+        // только user1 лайкает film3
+        filmStorage.addLike(film3.getId(), user1.getId().longValue());
+
+        List<Film> commonFilms = filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        // должны вернуться только film1 и film2
+        assertThat(commonFilms).hasSize(2);
+        assertThat(commonFilms.stream().map(Film::getId).toList())
+                .containsExactlyInAnyOrder(film1.getId(), film2.getId());
+    }
 }
