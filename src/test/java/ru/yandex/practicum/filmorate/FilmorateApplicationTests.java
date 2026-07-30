@@ -85,8 +85,6 @@ class FilmorateApplicationTests {
         assertThat(friends).isEmpty();
     }
 
-    // ===== ТЕСТЫ ФИЛЬМОВ =====
-
     @Test
     void testCreateFilm() {
         Film film = makeFilm("Тест");
