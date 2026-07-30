@@ -12,8 +12,10 @@ import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 
-import java.sql.*;
-import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,7 +37,7 @@ public class FilmDbStorage implements FilmStorage {
             PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, film.getName());
             ps.setString(2, film.getDescription());
-            ps.setDate(3, Date.valueOf(film.getReleaseDate()));
+            ps.setDate(3, java.sql.Date.valueOf(film.getReleaseDate()));
             ps.setInt(4, film.getDuration());
             ps.setInt(5, film.getMpa().getId());
             return ps;
@@ -86,29 +88,91 @@ public class FilmDbStorage implements FilmStorage {
     public List<Film> getAll() {
         String sql = "SELECT f.*, m.name AS mpa_name FROM films f " +
                 "JOIN mpa_ratings m ON f.mpa_id = m.id";
-        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm);
+        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, (Object[]) null);
 
         if (films.isEmpty()) return films;
 
-        // жанры — через новый метод
         loadGenresForFilms(films);
 
-        // лайки — остаются здесь
         List<Integer> filmIds = films.stream()
                 .map(Film::getId)
                 .collect(Collectors.toList());
-        MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
 
-        Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
-        namedJdbcTemplate.query("SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
-                params, rs -> {
-                    int filmId = rs.getInt("film_id");
-                    likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
-                            .add(rs.getLong("user_id"));
-                });
+        if (!filmIds.isEmpty()) {
+            MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
+            Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
+            namedJdbcTemplate.query(
+                    "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                    params,
+                    rs -> {
+                        int filmId = rs.getInt("film_id");
+                        likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                                .add(rs.getLong("user_id"));
+                    }
+            );
+            films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
+        } else {
+            films.forEach(f -> f.setLikes(new HashSet<>()));
+        }
+        return films;
+    }
 
-        films.forEach(f -> f.setLikes(
-                likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
+    @Override
+    public void addLike(Integer filmId, Long userId) {
+        jdbcTemplate.update(
+                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
+                filmId, userId
+        );
+    }
+
+    @Override
+    public void removeLike(Integer filmId, Long userId) {
+        jdbcTemplate.update(
+                "DELETE FROM likes WHERE film_id=? AND user_id=?",
+                filmId, userId
+        );
+    }
+
+    @Override
+    public List<Film> getPopular(int count, Integer genreId, Integer year) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT f.*, m.name AS mpa_name " +
+                        "FROM films f " +
+                        "JOIN mpa_ratings m ON f.mpa_id = m.id " +
+                        "LEFT JOIN likes l ON f.id = l.film_id "
+        );
+
+        List<String> conditions = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        if (genreId != null) {
+            sql.append("INNER JOIN film_genres fg ON f.id = fg.film_id ");
+            sql.append("INNER JOIN genres g ON fg.genre_id = g.id ");
+            conditions.add("g.id = ?");
+            params.add(genreId);
+        }
+
+        if (year != null) {
+            conditions.add("EXTRACT(YEAR FROM f.release_date) = ?");
+            params.add(year);
+        }
+
+        if (!conditions.isEmpty()) {
+            sql.append("WHERE ").append(String.join(" AND ", conditions)).append(" ");
+        }
+
+        sql.append("GROUP BY f.id, m.id, m.name ");
+        sql.append("ORDER BY COUNT(l.user_id) DESC, f.id ASC ");
+        sql.append("LIMIT ?");
+        params.add(count);
+
+        log.debug("Executing popular films query: {}", sql);
+
+        List<Film> films = jdbcTemplate.query(sql.toString(), this::mapRowToFilm, params.toArray());
+
+        if (!films.isEmpty()) {
+            loadGenresForFilms(films);
+        }
 
         return films;
     }
@@ -156,38 +220,14 @@ public class FilmDbStorage implements FilmStorage {
         film.setDescription(rs.getString("description"));
         film.setReleaseDate(rs.getDate("release_date").toLocalDate());
         film.setDuration(rs.getInt("duration"));
-        film.setMpa(new Mpa(rs.getInt("mpa_id"), rs.getString("mpa_name")));
+
+        Integer mpaId = rs.getInt("mpa_id");
+        String mpaName = rs.getString("mpa_name");
+        if (mpaId != null && mpaName != null) {
+            film.setMpa(new Mpa(mpaId, mpaName));
+        }
+
         return film;
-    }
-
-    public void addLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
-                filmId, userId
-        );
-    }
-
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
-        );
-    }
-
-    @Override
-    public List<Film> getPopular(int count) {
-        String sql = "SELECT f.*, m.name AS mpa_name FROM films f " +
-                "JOIN mpa_ratings m ON f.mpa_id = m.id " +
-                "LEFT JOIN likes l ON f.id = l.film_id " +
-                "GROUP BY f.id " +
-                "ORDER BY COUNT(l.user_id) DESC " +
-                "LIMIT ?";
-        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, count);
-        if (films.isEmpty()) return films;
-
-        loadGenresForFilms(films);
-
-        return films;
     }
 
     private void loadGenresForFilms(List<Film> films) {
@@ -198,20 +238,22 @@ public class FilmDbStorage implements FilmStorage {
                 .collect(Collectors.toList());
 
         MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
-
         Map<Integer, List<Genre>> genresByFilm = new HashMap<>();
         namedJdbcTemplate.query(
                 "SELECT fg.film_id, g.id, g.name FROM genres g " +
                         "JOIN film_genres fg ON g.id = fg.genre_id " +
                         "WHERE fg.film_id IN (:ids) ORDER BY g.id",
-                params, rs -> {
+                params,
+                rs -> {
                     int filmId = rs.getInt("film_id");
                     genresByFilm.computeIfAbsent(filmId, k -> new ArrayList<>())
                             .add(new Genre(rs.getInt("id"), rs.getString("name")));
-                });
+                }
+        );
 
         films.forEach(f -> f.setGenres(
-                genresByFilm.getOrDefault(f.getId(), new ArrayList<>())));
+                genresByFilm.getOrDefault(f.getId(), new ArrayList<>())
+        ));
     }
 
     public List<Film> getCommonFilms(Integer userId, Integer friendId) {

@@ -21,7 +21,7 @@ public interface FilmStorage {
 
     List<Film> getAll();
 
-    List<Film> getPopular(int count);
+    List<Film> getPopular(int count, Integer genreId, Integer year);
 
     List<Film> getCommonFilms(Integer userId, Integer friendId);
 }
