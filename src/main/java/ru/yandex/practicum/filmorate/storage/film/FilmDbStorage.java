@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
@@ -29,6 +30,7 @@ public class FilmDbStorage implements FilmStorage {
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
+    @Transactional
     @Override
     public Film add(Film film) {
         String sql = "INSERT INTO films (name, description, release_date, duration, mpa_id) " +
@@ -52,6 +54,7 @@ public class FilmDbStorage implements FilmStorage {
         return getById(film.getId()).orElseThrow();
     }
 
+    @Transactional
     @Override
     public Film update(Film film) {
         String sql = "UPDATE films SET name=?, description=?, release_date=?, duration=?, mpa_id=? WHERE id=?";
@@ -223,6 +226,22 @@ public class FilmDbStorage implements FilmStorage {
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
             loadDirectorsForFilms(films);
+
+            List<Integer> filmIds = films.stream()
+                    .map(Film::getId)
+                    .collect(Collectors.toList());
+            MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
+            Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
+            namedJdbcTemplate.query(
+                    "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                    params,
+                    rs -> {
+                        int filmId = rs.getInt("film_id");
+                        likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                                .add(rs.getLong("user_id"));
+                    }
+            );
+            films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
         }
 
         return films;
