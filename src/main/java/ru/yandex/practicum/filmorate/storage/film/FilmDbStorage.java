@@ -103,6 +103,7 @@ public class FilmDbStorage implements FilmStorage {
 
         if (films.isEmpty()) return films;
 
+        // жанры — через новый метод
         loadGenresForFilms(films);
         loadDirectorsForFilms(films);
 
@@ -127,22 +128,6 @@ public class FilmDbStorage implements FilmStorage {
             films.forEach(f -> f.setLikes(new HashSet<>()));
         }
         return films;
-    }
-
-    @Override
-    public void addLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
-                filmId, userId
-        );
-    }
-
-    @Override
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
-        );
     }
 
     @Override
@@ -174,7 +159,7 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         sql.append("GROUP BY f.id, m.id, m.name ");
-        sql.append("ORDER BY COUNT(l.user_id) DESC ");
+        sql.append("ORDER BY COUNT(l.user_id) DESC, f.id ASC "); // из первой версии
         sql.append("LIMIT ?");
         params.add(count);
 
@@ -183,8 +168,8 @@ public class FilmDbStorage implements FilmStorage {
         List<Film> films = jdbcTemplate.query(sql.toString(), this::mapRowToFilm, params.toArray());
 
         if (!films.isEmpty()) {
-            loadGenresForFilms(films);
-            loadDirectorsForFilms(films);
+            loadGenresForFilms(films);      // было в обеих
+            loadDirectorsForFilms(films);   // добавлено из второй
         }
 
         return films;
@@ -226,10 +211,12 @@ public class FilmDbStorage implements FilmStorage {
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
             loadDirectorsForFilms(films);
+        }
+        List<Integer> filmIds = films.stream()
+                .map(Film::getId)
+                .collect(Collectors.toList());
 
-            List<Integer> filmIds = films.stream()
-                    .map(Film::getId)
-                    .collect(Collectors.toList());
+        if (!filmIds.isEmpty()) {
             MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
             Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
             namedJdbcTemplate.query(
@@ -242,9 +229,26 @@ public class FilmDbStorage implements FilmStorage {
                     }
             );
             films.forEach(f -> f.setLikes(likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
+        } else {
+            films.forEach(f -> f.setLikes(new HashSet<>()));
         }
-
         return films;
+    }
+
+    @Override
+    public void addLike(Integer filmId, Long userId) {
+        jdbcTemplate.update(
+                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
+                filmId, userId
+        );
+    }
+
+    @Override
+    public void removeLike(Integer filmId, Long userId) {
+        jdbcTemplate.update(
+                "DELETE FROM likes WHERE film_id=? AND user_id=?",
+                filmId, userId
+        );
     }
 
     private void saveGenres(Film film) {

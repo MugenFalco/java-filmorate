@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate;
 
 import lombok.RequiredArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -9,9 +10,14 @@ import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.service.ReviewService;
+import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
@@ -24,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, UserDbStorage.class, DirectorDbStorage.class})
+@Import({FilmDbStorage.class, UserDbStorage.class, DirectorDbStorage.class, ReviewDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
@@ -32,6 +38,8 @@ class FilmorateApplicationTests {
     private final DirectorDbStorage directorStorage;
 
     // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
+    private final ReviewDbStorage reviewStorage;
+    private ReviewService reviewService;
 
     @Test
     void testCreateUser() {
@@ -78,7 +86,7 @@ class FilmorateApplicationTests {
         userStorage.addFriend(user1.getId(), user2.getId());
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).hasSize(1);
-        assertThat(friends.get(0).getId()).isEqualTo(user2.getId());
+        assertThat(friends.getFirst().getId()).isEqualTo(user2.getId());
     }
 
     @Test
@@ -90,8 +98,6 @@ class FilmorateApplicationTests {
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).isEmpty();
     }
-
-    // ===== ТЕСТЫ ФИЛЬМОВ =====
 
     @Test
     void testCreateFilm() {
@@ -142,10 +148,135 @@ class FilmorateApplicationTests {
 
         filmStorage.removeLike(film.getId(), user.getId().longValue());
         Optional<Film> unliked = filmStorage.getById(film.getId());
-        assertThat(unliked.get().getLikes()).isEmpty();
+        assertThat(unliked)
+                .isPresent()
+                .hasValueSatisfying(unlikedFilm ->
+                        assertThat(unlikedFilm.getLikes()).isEmpty()
+                );
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+    // ===== ТЕСТЫ ОТЗЫВОВ =====
+
+    @Test
+    void testCreateUpdateDeleteReview() {
+        User user = userStorage.add(
+                makeUser("review@ya.ru", "reviewer")
+        );
+        Film film = filmStorage.add(
+                makeFilm("Фильм с отзывом")
+        );
+
+        Review review = makeReview(
+                "Хороший фильм",
+                true,
+                user.getId(),
+                film.getId()
+        );
+
+        Review created = reviewService.add(review);
+
+        assertThat(created.getReviewId()).isNotNull();
+        assertThat(created.getUseful()).isZero();
+
+        created.setContent("Обновлённый отзыв");
+        created.setIsPositive(false);
+
+        reviewService.update(created);
+
+        Review updated = reviewService.getById(created.getReviewId());
+
+        assertThat(updated.getContent())
+                .isEqualTo("Обновлённый отзыв");
+        assertThat(updated.getIsPositive()).isFalse();
+
+        reviewService.delete(created.getReviewId());
+
+        assertThat(reviewStorage.getById(created.getReviewId()))
+                .isEmpty();
+    }
+
+    @Test
+    void testReviewRatingsAndSorting() {
+        User author = userStorage.add(
+                makeUser("author@ya.ru", "author")
+        );
+        User firstVoter = userStorage.add(
+                makeUser("first@ya.ru", "first")
+        );
+        User secondVoter = userStorage.add(
+                makeUser("second@ya.ru", "second")
+        );
+        Film film = filmStorage.add(makeFilm("Фильм"));
+
+        Review firstReview = reviewService.add(
+                makeReview(
+                        "Первый отзыв",
+                        true,
+                        author.getId(),
+                        film.getId()
+                )
+        );
+        Review secondReview = reviewService.add(
+                makeReview(
+                        "Второй отзыв",
+                        true,
+                        author.getId(),
+                        film.getId()
+                )
+        );
+
+        reviewService.setRating(
+                firstReview.getReviewId(),
+                firstVoter.getId(),
+                true
+        );
+        reviewService.setRating(
+                secondReview.getReviewId(),
+                firstVoter.getId(),
+                true
+        );
+        reviewService.setRating(
+                secondReview.getReviewId(),
+                secondVoter.getId(),
+                true
+        );
+
+        List<Review> reviews = reviewService.getAll(
+                film.getId(),
+                10
+        );
+
+        assertThat(reviews)
+                .extracting(Review::getReviewId)
+                .containsExactly(
+                        secondReview.getReviewId(),
+                        firstReview.getReviewId()
+                );
+
+        reviewService.setRating(
+                secondReview.getReviewId(),
+                secondVoter.getId(),
+                false
+        );
+
+        assertThat(
+                reviewService.getById(
+                        secondReview.getReviewId()
+                ).getUseful()
+        ).isZero();
+
+        reviewService.removeRating(
+                firstReview.getReviewId(),
+                firstVoter.getId(),
+                true
+        );
+
+        assertThat(
+                reviewService.getById(
+                        firstReview.getReviewId()
+                ).getUseful()
+        ).isZero();
+    }
 
     private User makeUser(String email, String login) {
         User user = new User();
@@ -158,12 +289,43 @@ class FilmorateApplicationTests {
 
     private Film makeFilm(String name) {
         Film film = new Film();
-        film.setName(name);
-        film.setDescription("Описание");
-        film.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film.setDuration(120);
-        film.setMpa(new Mpa(1, "G"));
-        return film;
+        Film film1 = film;
+        film1.setName(name);
+        film1.setDescription("Описание");
+        film1.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film1.setDuration(120);
+        film1.setMpa(new Mpa(1, "G"));
+        return film1;
+    }
+
+    private Review makeReview(
+            String content,
+            boolean isPositive,
+            Integer userId,
+            Integer filmId
+    ) {
+        Review review = new Review();
+        review.setContent(content);
+        review.setIsPositive(isPositive);
+        review.setUserId(userId);
+        review.setFilmId(filmId);
+        return review;
+    }
+
+    @BeforeEach
+    void setUp() {
+        FilmService filmService = new FilmService(
+                filmStorage,
+                userStorage
+        );
+        UserService userService = new UserService(userStorage);
+
+        reviewService = new ReviewService(
+                reviewStorage,
+                filmService,
+                userService
+        );
+
     }
 
     @Test

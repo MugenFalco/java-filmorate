@@ -6,7 +6,7 @@ import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
-
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,5 +98,31 @@ class UserValidationTest {
 
         User result = controller.createUser(user);
         assertEquals("login", result.getName());
+    }
+
+    @Test
+    void shouldDeleteUser() {
+        User user = new User();
+        user.setEmail("delete@mail.ru");
+        user.setLogin("delete");
+        user.setBirthday(LocalDate.of(1990, 1, 1));
+        User created = controller.createUser(user);
+
+        controller.deleteUser(created.getId());
+
+        assertThrows(
+                NotFoundException.class,
+                () -> controller.getUserById(created.getId())
+        );
+    }
+
+    @Test
+    void shouldFailWhenDeletingNonExistentUser() {
+        NotFoundException ex = assertThrows(
+                NotFoundException.class,
+                () -> controller.deleteUser(9999)
+        );
+
+        assertEquals("Пользователь с id 9999 не найден", ex.getMessage());
     }
 }

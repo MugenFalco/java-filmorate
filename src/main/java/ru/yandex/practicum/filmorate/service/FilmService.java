@@ -78,6 +78,11 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException("Фильм с указанным id не найден"));
     }
 
+    public void delete(Integer filmId) {
+        getById(filmId);
+        filmStorage.delete(filmId);
+    }
+
     public void addLike(Integer filmId, Long userId) {
         getById(filmId);
         userStorage.getById(userId.intValue())
