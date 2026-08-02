@@ -37,7 +37,6 @@ class FilmorateApplicationTests {
     private final UserDbStorage userStorage;
     private final DirectorDbStorage directorStorage;
 
-    // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
     private final ReviewDbStorage reviewStorage;
     private ReviewService reviewService;
 
@@ -382,5 +381,28 @@ class FilmorateApplicationTests {
 
         assertEquals(created1.getId(), result.get(0).getId());
         assertEquals(created2.getId(), result.get(1).getId());
+    }
+
+    @Test
+    void testGetCommonFilms() {
+        User user1 = userStorage.add(makeUser("common1@mail.ru", "common1"));
+        User user2 = userStorage.add(makeUser("common2@mail.ru", "common2"));
+
+        Film film1 = filmStorage.add(makeFilm("Общий фильм 1"));
+        Film film2 = filmStorage.add(makeFilm("Общий фильм 2"));
+        Film film3 = filmStorage.add(makeFilm("Только у первого"));
+
+        filmStorage.addLike(film1.getId(), user1.getId().longValue());
+        filmStorage.addLike(film1.getId(), user2.getId().longValue());
+        filmStorage.addLike(film2.getId(), user1.getId().longValue());
+        filmStorage.addLike(film2.getId(), user2.getId().longValue());
+
+        filmStorage.addLike(film3.getId(), user1.getId().longValue());
+
+        List<Film> commonFilms = filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(commonFilms).hasSize(2);
+        assertThat(commonFilms.stream().map(Film::getId).toList())
+                .containsExactlyInAnyOrder(film1.getId(), film2.getId());
     }
 }
