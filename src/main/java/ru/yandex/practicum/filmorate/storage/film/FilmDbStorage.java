@@ -431,8 +431,25 @@ public class FilmDbStorage implements FilmStorage {
 
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
-        }
+            loadDirectorsForFilms(films);
 
+            List<Integer> filmIds = films.stream()
+                    .map(Film::getId)
+                    .collect(Collectors.toList());
+            MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
+            Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
+            namedJdbcTemplate.query(
+                    "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                    params,
+                    rs -> {
+                        int filmId = rs.getInt("film_id");
+                        likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                                .add(rs.getLong("user_id"));
+                    }
+            );
+            films.forEach(f -> f.setLikes(
+                    likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
+        }
         return films;
     }
 }

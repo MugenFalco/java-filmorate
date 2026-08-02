@@ -374,8 +374,8 @@ class FilmorateApplicationTests {
         User user2 = userStorage.add(makeUser("u2@mail.ru", "user2"));
 
         filmStorage.addLike(created1.getId(), user1.getId().longValue());
-        filmStorage.addLike(created1.getId(), user2.getId().longValue()); // у film1 два лайка
-        filmStorage.addLike(created2.getId(), user1.getId().longValue()); // у film2 один лайк
+        filmStorage.addLike(created1.getId(), user2.getId().longValue());
+        filmStorage.addLike(created2.getId(), user1.getId().longValue());
 
         List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
 
