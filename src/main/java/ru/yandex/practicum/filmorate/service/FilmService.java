@@ -119,4 +119,12 @@ public class FilmService {
         }
         return filmStorage.getFilmsByDirector(directorId, sortBy);
     }
+
+    public List<Film> getCommonFilms(Integer userId, Integer friendId) {
+        userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+        userStorage.getById(friendId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
+        return filmStorage.getCommonFilms(userId, friendId);
+    }
 }
