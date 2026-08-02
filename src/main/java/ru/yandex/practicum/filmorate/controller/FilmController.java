@@ -42,6 +42,11 @@ public class FilmController {
         return filmService.getById(id);
     }
 
+    @DeleteMapping("/{filmId}")
+    public void deleteFilm(@PathVariable Integer filmId) {
+        filmService.delete(filmId);
+    }
+
     @PutMapping("/{id}/like/{userId}")
     public void addLike(@PathVariable Integer id, @PathVariable Long userId) {
         filmService.addLike(id, userId);
@@ -59,6 +64,15 @@ public class FilmController {
             @RequestParam(required = false) Integer year
     ) {
         return filmService.getPopular(count, genreId, year);
+    }
+
+    @GetMapping("/director/{directorId}")
+    public List<Film> getFilmsByDirector(
+            @PathVariable Integer directorId,
+            @RequestParam String sortBy
+    ) {
+        log.info("GET /films/director/{}?sortBy={}", directorId, sortBy);
+        return filmService.getFilmsByDirector(directorId, sortBy);
     }
 
     private void validate(Film film) {

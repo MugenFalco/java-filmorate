@@ -37,6 +37,11 @@ public class UserService {
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
     }
 
+    public void delete(Integer userId) {
+        getById(userId);
+        userStorage.delete(userId);
+    }
+
     public User addFriend(Integer userId, Integer friendId) {
         getById(userId);
         getById(friendId);
