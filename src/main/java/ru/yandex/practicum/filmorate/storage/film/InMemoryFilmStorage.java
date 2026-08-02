@@ -102,7 +102,7 @@ public class InMemoryFilmStorage implements FilmStorage {
                     if ("year".equalsIgnoreCase(sortBy)) {
                         int year1 = f1.getReleaseDate() != null ? f1.getReleaseDate().getYear() : 0;
                         int year2 = f2.getReleaseDate() != null ? f2.getReleaseDate().getYear() : 0;
-                        return Integer.compare(year2, year1);
+                        return Integer.compare(year1, year2);  // ← ИСПРАВЛЕНО!
                     } else {
                         return Integer.compare(f2.getLikes().size(), f1.getLikes().size());
                     }
