@@ -146,4 +146,10 @@ public class FilmService {
 
         return filmStorage.search(query, searchTitle, searchDirector);
     }
+
+    public List<Film> getCommonFilms(Integer userId, Integer friendId) {
+        getById(userId);
+        getById(friendId);
+        return filmStorage.getCommonFilms(userId, friendId);
+    }
 }

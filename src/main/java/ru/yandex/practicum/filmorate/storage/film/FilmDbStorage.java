@@ -49,7 +49,9 @@ public class FilmDbStorage implements FilmStorage {
         saveGenres(film);
         saveDirectors(film);
         log.info("Добавлен фильм: {}", film.getName());
-        return film;
+
+        return getById(film.getId()).orElseThrow(() ->
+                new NotFoundException("Фильм с id " + film.getId() + " не найден после сохранения"));
     }
 
     @Override
@@ -70,7 +72,9 @@ public class FilmDbStorage implements FilmStorage {
         saveDirectors(film);
 
         log.info("Обновлён фильм: {}", film.getName());
-        return film;
+
+        return getById(film.getId()).orElseThrow(() ->
+                new NotFoundException("Фильм с id " + film.getId() + " не найден после обновления"));
     }
 
     @Override
@@ -209,7 +213,7 @@ public class FilmDbStorage implements FilmStorage {
                 "LEFT JOIN likes l ON f.id = l.film_id " +
                 "WHERE fd.director_id = ? " +
                 "GROUP BY f.id, m.id, m.name " +
-                "ORDER BY " + orderBy;
+                "ORDER BY " + orderBy + ", f.id ASC";
 
         log.debug("Executing films by director query: {}", sql);
 
