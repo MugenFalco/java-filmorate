@@ -6,6 +6,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -81,15 +82,28 @@ public class InMemoryFilmStorage implements FilmStorage {
                     }
                     return true;
                 })
-                .sorted((f1, f2) -> {
-                    int likesCompare = Integer.compare(f2.getLikes().size(), f1.getLikes().size());
-                    if (likesCompare != 0) {
-                        return likesCompare;
-                    }
-                    return Integer.compare(f1.getId(), f2.getId());
-                })
+                .sorted((f1, f2) -> Integer.compare(
+                        f2.getLikes().size(),
+                        f1.getLikes().size()
+                ))
                 .limit(count)
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
 
+    @Override
+    public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
+        return films.values().stream()
+                .filter(film -> film.getDirectors() != null &&
+                        film.getDirectors().stream().anyMatch(d -> d.getId().equals(directorId)))
+                .sorted((f1, f2) -> {
+                    if ("year".equalsIgnoreCase(sortBy)) {
+                        int year1 = f1.getReleaseDate() != null ? f1.getReleaseDate().getYear() : 0;
+                        int year2 = f2.getReleaseDate() != null ? f2.getReleaseDate().getYear() : 0;
+                        return Integer.compare(year2, year1);
+                    } else {
+                        return Integer.compare(f2.getLikes().size(), f1.getLikes().size());
+                    }
+                })
+                .collect(Collectors.toList());
+    }
 }
