@@ -361,10 +361,8 @@ class FilmorateApplicationTests {
 
     @Test
     void testGetFilmsByDirectorSortedByLikes() {
-        // создаём режиссёра
         Director director = directorStorage.add(new Director(null, "Тест режиссёр"));
 
-        // создаём два фильма
         Film film1 = makeFilm("Фильм 1");
         film1.setDirectors(List.of(director));
         Film created1 = filmStorage.add(film1);
@@ -373,7 +371,6 @@ class FilmorateApplicationTests {
         film2.setDirectors(List.of(director));
         Film created2 = filmStorage.add(film2);
 
-        // создаём пользователей и ставим лайки
         User user1 = userStorage.add(makeUser("u1@mail.ru", "user1"));
         User user2 = userStorage.add(makeUser("u2@mail.ru", "user2"));
 
@@ -383,7 +380,6 @@ class FilmorateApplicationTests {
 
         List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
 
-        // film1 должен быть первым (больше лайков)
         assertEquals(created1.getId(), result.get(0).getId());
         assertEquals(created2.getId(), result.get(1).getId());
     }
