@@ -62,6 +62,9 @@ public class FilmService {
         if (film.getGenres() != null) {
             oldFilm.setGenres(film.getGenres());
         }
+        if (film.getDirectors() != null) {
+            oldFilm.setDirectors(film.getDirectors());
+        }
 
         return filmStorage.update(oldFilm);
     }
@@ -108,6 +111,13 @@ public class FilmService {
             throw new ValidationException("ID жанра должен быть положительным");
         }
         return filmStorage.getPopular(count, genreId, year);
+    }
+
+    public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
+        if (!"year".equalsIgnoreCase(sortBy) && !"likes".equalsIgnoreCase(sortBy)) {
+            throw new ValidationException("Параметр sortBy должен быть 'year' или 'likes'");
+        }
+        return filmStorage.getFilmsByDirector(directorId, sortBy);
     }
 
     public List<Film> getRecommendations(Integer userId) {
