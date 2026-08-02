@@ -92,4 +92,8 @@ public class InMemoryFilmStorage implements FilmStorage {
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
 
+    @Override
+    public List<Film> getRecommendations(Integer userId) {
+        return new ArrayList<>();
+    }
 }
