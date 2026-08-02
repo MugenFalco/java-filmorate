@@ -291,6 +291,62 @@ public class FilmDbStorage implements FilmStorage {
         return films;
     }
 
+    @Override
+    public List<Film> getRecommendations(Integer userId) {
+        String sql =
+                "SELECT DISTINCT f.*, m.name AS mpa_name " +
+                        "FROM films f " +
+                        "JOIN mpa_ratings m ON f.mpa_id = m.id " +
+                        "JOIN likes l ON f.id = l.film_id " +
+                        "WHERE l.user_id IN (" +
+                        "    SELECT l2.user_id " +
+                        "    FROM likes l1 " +
+                        "    JOIN likes l2 ON l1.film_id = l2.film_id AND l2.user_id != ? " +
+                        "    WHERE l1.user_id = ? " +
+                        "    GROUP BY l2.user_id " +
+                        "    HAVING COUNT(*) = (" +
+                        "        SELECT MAX(cnt) FROM (" +
+                        "            SELECT COUNT(*) AS cnt " +
+                        "            FROM likes l1 " +
+                        "            JOIN likes l2 ON l1.film_id = l2.film_id AND l2.user_id != ? " +
+                        "            WHERE l1.user_id = ? " +
+                        "            GROUP BY l2.user_id" +
+                        "        ) t" +
+                        "    )" +
+                        ") " +
+                        "AND f.id NOT IN (" +
+                        "    SELECT film_id FROM likes WHERE user_id = ?" +
+                        ")";
+
+        List<Film> films = jdbcTemplate.query(
+                sql, this::mapRowToFilm,
+                userId, userId, userId, userId, userId
+        );
+
+        if (!films.isEmpty()) {
+            loadGenresForFilms(films);
+            loadDirectorsForFilms(films);
+
+            List<Integer> filmIds = films.stream()
+                    .map(Film::getId)
+                    .collect(Collectors.toList());
+            MapSqlParameterSource params = new MapSqlParameterSource("ids", filmIds);
+            Map<Integer, Set<Long>> likesByFilm = new HashMap<>();
+            namedJdbcTemplate.query(
+                    "SELECT film_id, user_id FROM likes WHERE film_id IN (:ids)",
+                    params,
+                    rs -> {
+                        int filmId = rs.getInt("film_id");
+                        likesByFilm.computeIfAbsent(filmId, k -> new HashSet<>())
+                                .add(rs.getLong("user_id"));
+                    }
+            );
+            films.forEach(f -> f.setLikes(
+                    likesByFilm.getOrDefault(f.getId(), new HashSet<>())));
+        }
+        return films;
+    }
+
     private void saveGenres(Film film) {
         if (film.getGenres() == null || film.getGenres().isEmpty()) return;
 

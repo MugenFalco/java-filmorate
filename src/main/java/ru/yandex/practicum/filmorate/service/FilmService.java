@@ -152,4 +152,10 @@ public class FilmService {
         getById(friendId);
         return filmStorage.getCommonFilms(userId, friendId);
     }
+
+    public List<Film> getRecommendations(Integer userId) {
+        userStorage.getById(userId)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+        return filmStorage.getRecommendations(userId);
+    }
 }

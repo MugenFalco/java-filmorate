@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.model.Film;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -17,6 +19,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final FilmService filmService;
 
     @PostMapping
     public User createUser(@RequestBody User user) {
@@ -89,5 +92,10 @@ public class UserController {
             log.warn("Валидация не пройдена: дата рождения в будущем");
             throw new ValidationException("Дата рождения не может быть в будущем");
         }
+    }
+
+    @GetMapping("/{id}/recommendations")
+    public List<Film> getRecommendations(@PathVariable Integer id) {
+        return filmService.getRecommendations(id);
     }
 }
