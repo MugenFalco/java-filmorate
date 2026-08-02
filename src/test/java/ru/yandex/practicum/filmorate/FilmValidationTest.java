@@ -154,6 +154,9 @@ class FilmValidationTest {
         Film film = new Film();
         film.setName("Фильм для удаления");
         film.setDuration(120);
+        film.setDescription("Описание");
+        film.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film.setMpa(new Mpa(1, "G"));
         Film created = controller.addFilm(film);
 
         controller.deleteFilm(created.getId());

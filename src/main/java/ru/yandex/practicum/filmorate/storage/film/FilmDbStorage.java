@@ -241,22 +241,6 @@ public class FilmDbStorage implements FilmStorage {
         return films;
     }
 
-    @Override
-    public void addLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
-                filmId, userId
-        );
-    }
-
-    @Override
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
-        );
-    }
-
     private void saveGenres(Film film) {
         if (film.getGenres() == null || film.getGenres().isEmpty()) return;
 
@@ -352,22 +336,6 @@ public class FilmDbStorage implements FilmStorage {
                 filmId,
                 userId
         );
-    }
-
-    @Override
-    public List<Film> getPopular(int count) {
-        String sql = "SELECT f.*, m.name AS mpa_name FROM films f " +
-                "JOIN mpa_ratings m ON f.mpa_id = m.id " +
-                "LEFT JOIN likes l ON f.id = l.film_id " +
-                "GROUP BY f.id " +
-                "ORDER BY COUNT(l.user_id) DESC " +
-                "LIMIT ?";
-        List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, count);
-        if (films.isEmpty()) return films;
-
-        loadGenresForFilms(films);
-
-        return films;
     }
 
     private void loadGenresForFilms(List<Film> films) {
