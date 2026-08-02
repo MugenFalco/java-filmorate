@@ -15,6 +15,6 @@ public class Film {
     private int duration;
     private Mpa mpa;
     private List<Genre> genres;
-    private List<Director> directors;  // ← НОВОЕ ПОЛЕ
+    private List<Director> directors;
     private Set<Long> likes = new HashSet<>();
 }

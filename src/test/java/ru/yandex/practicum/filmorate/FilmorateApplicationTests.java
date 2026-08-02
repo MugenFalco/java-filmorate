@@ -85,7 +85,7 @@ class FilmorateApplicationTests {
         userStorage.addFriend(user1.getId(), user2.getId());
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).hasSize(1);
-        assertThat(friends.getFirst().getId()).isEqualTo(user2.getId());
+        assertThat(friends.get(0).getId()).isEqualTo(user2.getId());  // ← ИСПРАВЛЕНО
     }
 
     @Test
@@ -153,8 +153,6 @@ class FilmorateApplicationTests {
                         assertThat(unlikedFilm.getLikes()).isEmpty()
                 );
     }
-
-    // ===== ТЕСТЫ ОТЗЫВОВ =====
 
     @Test
     void testCreateUpdateDeleteReview() {

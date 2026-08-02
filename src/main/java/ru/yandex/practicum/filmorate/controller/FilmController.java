@@ -42,9 +42,10 @@ public class FilmController {
         return filmService.getById(id);
     }
 
-    @DeleteMapping("/{filmId}")
-    public void deleteFilm(@PathVariable Integer filmId) {
-        filmService.delete(filmId);
+    @DeleteMapping("/{id}")
+    public void deleteFilm(@PathVariable Integer id) {
+        log.info("DELETE /films/{} - удаление фильма", id);
+        filmService.deleteFilm(id);
     }
 
     @PutMapping("/{id}/like/{userId}")
@@ -75,6 +76,15 @@ public class FilmController {
         return filmService.getFilmsByDirector(directorId, sortBy);
     }
 
+    @GetMapping("/search")
+    public List<Film> searchFilms(
+            @RequestParam String query,
+            @RequestParam String by
+    ) {
+        log.info("GET /films/search?query={}&by={}", query, by);
+        return filmService.search(query, by);
+    }
+
     private void validate(Film film) {
         if (film.getName() == null || film.getName().isBlank()) {
             log.warn("Валидация не пройдена: пустое название фильма");
@@ -92,11 +102,5 @@ public class FilmController {
             log.warn("Валидация не пройдена: продолжительность не положительная");
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
-    }
-
-    @GetMapping("/common")
-    public List<Film> getCommonFilms(@RequestParam Integer userId,
-                                     @RequestParam Integer friendId) {
-        return filmService.getCommonFilms(userId, friendId);
     }
 }

@@ -10,7 +10,10 @@ import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -78,9 +81,10 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException("Фильм с указанным id не найден"));
     }
 
-    public void delete(Integer filmId) {
-        getById(filmId);
-        filmStorage.delete(filmId);
+    public void deleteFilm(Integer id) {
+        getById(id);
+        filmStorage.delete(id);
+        log.info("Удалён фильм с id: {}", id);
     }
 
     public void addLike(Integer filmId, Long userId) {
@@ -120,11 +124,26 @@ public class FilmService {
         return filmStorage.getFilmsByDirector(directorId, sortBy);
     }
 
-    public List<Film> getCommonFilms(Integer userId, Integer friendId) {
-        userStorage.getById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
-        userStorage.getById(friendId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id " + friendId + " не найден"));
-        return filmStorage.getCommonFilms(userId, friendId);
+    public List<Film> search(String query, String by) {
+        if (query == null || query.isBlank()) {
+            throw new ValidationException("Query не может быть пустым");
+        }
+        if (by == null || by.isBlank()) {
+            throw new ValidationException("Параметр 'by' не может быть пустым");
+        }
+
+        Set<String> searchFields = Arrays.stream(by.split(","))
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        boolean searchTitle = searchFields.contains("title");
+        boolean searchDirector = searchFields.contains("director");
+
+        if (!searchTitle && !searchDirector) {
+            throw new ValidationException("Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'");
+        }
+
+        return filmStorage.search(query, searchTitle, searchDirector);
     }
 }

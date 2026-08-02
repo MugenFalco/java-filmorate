@@ -82,10 +82,13 @@ public class InMemoryFilmStorage implements FilmStorage {
                     }
                     return true;
                 })
-                .sorted((f1, f2) -> Integer.compare(
-                        f2.getLikes().size(),
-                        f1.getLikes().size()
-                ))
+                .sorted((f1, f2) -> {
+                    int likesCompare = Integer.compare(f2.getLikes().size(), f1.getLikes().size());
+                    if (likesCompare != 0) {
+                        return likesCompare;
+                    }
+                    return Integer.compare(f1.getId(), f2.getId());
+                })
                 .limit(count)
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
@@ -108,7 +111,29 @@ public class InMemoryFilmStorage implements FilmStorage {
     }
 
     @Override
-    public List<Film> getCommonFilms(Integer userId, Integer friendId) {
-        return new ArrayList<>();
+    public List<Film> search(String query, boolean searchByTitle, boolean searchByDirector) {
+        String queryLower = query.toLowerCase();
+        return films.values().stream()
+                .filter(film -> {
+                    boolean matchesTitle = searchByTitle &&
+                            film.getName() != null &&
+                            film.getName().toLowerCase().contains(queryLower);
+                    boolean matchesDirector = searchByDirector &&
+                            film.getDirectors() != null &&
+                            film.getDirectors().stream()
+                                    .anyMatch(d -> d.getName() != null &&
+                                            d.getName().toLowerCase().contains(queryLower));
+                    return matchesTitle || matchesDirector;
+                })
+                .sorted((f1, f2) -> Integer.compare(f2.getLikes().size(), f1.getLikes().size()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Film> getCommonFilms(Integer userId, Integer otherId) {
+        return films.values().stream()
+                .filter(film -> film.getLikes().contains(userId.longValue()) &&
+                        film.getLikes().contains(otherId.longValue()))
+                .collect(Collectors.toList());
     }
 }
