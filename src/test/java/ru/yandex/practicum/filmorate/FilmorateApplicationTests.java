@@ -9,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.model.Event;
 import ru.yandex.practicum.filmorate.model.EventType;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.model.Operation;
@@ -19,6 +20,7 @@ import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.ReviewService;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
+import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
@@ -28,16 +30,23 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.assertj.core.api.Assertions.tuple;
 
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, UserDbStorage.class, ReviewDbStorage.class, EventDbStorage.class})
+@Import({FilmDbStorage.class,
+        UserDbStorage.class,
+        ReviewDbStorage.class,
+        DirectorDbStorage.class,
+        EventDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
     private final UserDbStorage userStorage;
+    private final DirectorDbStorage directorStorage;
+
     private final ReviewDbStorage reviewStorage;
     private final EventDbStorage eventStorage;
 
@@ -454,5 +463,54 @@ class FilmorateApplicationTests {
                 userService,
                 eventService
         );
+
+    }
+
+    @Test
+    void testGetFilmsByDirectorSortedByLikes() {
+        Director director = directorStorage.add(new Director(null, "Тест режиссёр"));
+
+        Film film1 = makeFilm("Фильм 1");
+        film1.setDirectors(List.of(director));
+        Film created1 = filmStorage.add(film1);
+
+        Film film2 = makeFilm("Фильм 2");
+        film2.setDirectors(List.of(director));
+        Film created2 = filmStorage.add(film2);
+
+        User user1 = userStorage.add(makeUser("u1@mail.ru", "user1"));
+        User user2 = userStorage.add(makeUser("u2@mail.ru", "user2"));
+
+        filmStorage.addLike(created1.getId(), user1.getId().longValue());
+        filmStorage.addLike(created1.getId(), user2.getId().longValue()); // у film1 два лайка
+        filmStorage.addLike(created2.getId(), user1.getId().longValue()); // у film2 один лайк
+
+        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
+
+        assertEquals(created1.getId(), result.get(0).getId());
+        assertEquals(created2.getId(), result.get(1).getId());
+    }
+
+    @Test
+    void testGetCommonFilms() {
+        User user1 = userStorage.add(makeUser("common1@mail.ru", "common1"));
+        User user2 = userStorage.add(makeUser("common2@mail.ru", "common2"));
+
+        Film film1 = filmStorage.add(makeFilm("Общий фильм 1"));
+        Film film2 = filmStorage.add(makeFilm("Общий фильм 2"));
+        Film film3 = filmStorage.add(makeFilm("Только у первого"));
+
+        filmStorage.addLike(film1.getId(), user1.getId().longValue());
+        filmStorage.addLike(film1.getId(), user2.getId().longValue());
+        filmStorage.addLike(film2.getId(), user1.getId().longValue());
+        filmStorage.addLike(film2.getId(), user2.getId().longValue());
+
+        filmStorage.addLike(film3.getId(), user1.getId().longValue());
+
+        List<Film> commonFilms = filmStorage.getCommonFilms(user1.getId(), user2.getId());
+
+        assertThat(commonFilms).hasSize(2);
+        assertThat(commonFilms.stream().map(Film::getId).toList())
+                .containsExactlyInAnyOrder(film1.getId(), film2.getId());
     }
 }

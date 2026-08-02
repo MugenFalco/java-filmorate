@@ -42,6 +42,11 @@ public class FilmController {
         return filmService.getById(id);
     }
 
+    @DeleteMapping("/{filmId}")
+    public void deleteFilm(@PathVariable Integer filmId) {
+        filmService.delete(filmId);
+    }
+
     @PutMapping("/{id}/like/{userId}")
     public void addLike(@PathVariable Integer id, @PathVariable Long userId) {
         filmService.addLike(id, userId);
@@ -53,11 +58,21 @@ public class FilmController {
     }
 
     @GetMapping("/popular")
-    public List<Film> getPopular(@RequestParam(defaultValue = "10") int count) {
-        if (count <= 0) {
-            throw new ValidationException("Количество фильмов должно быть положительным");
-        }
-        return filmService.getPopular(count);
+    public List<Film> getPopular(
+            @RequestParam(defaultValue = "10") int count,
+            @RequestParam(required = false) Integer genreId,
+            @RequestParam(required = false) Integer year
+    ) {
+        return filmService.getPopular(count, genreId, year);
+    }
+
+    @GetMapping("/director/{directorId}")
+    public List<Film> getFilmsByDirector(
+            @PathVariable Integer directorId,
+            @RequestParam String sortBy
+    ) {
+        log.info("GET /films/director/{}?sortBy={}", directorId, sortBy);
+        return filmService.getFilmsByDirector(directorId, sortBy);
     }
 
     private void validate(Film film) {
@@ -77,5 +92,11 @@ public class FilmController {
             log.warn("Валидация не пройдена: продолжительность не положительная");
             throw new ValidationException("Продолжительность фильма должна быть положительным числом");
         }
+    }
+
+    @GetMapping("/common")
+    public List<Film> getCommonFilms(@RequestParam Integer userId,
+                                     @RequestParam Integer friendId) {
+        return filmService.getCommonFilms(userId, friendId);
     }
 }
