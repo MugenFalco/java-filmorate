@@ -324,7 +324,38 @@ class FilmorateApplicationTests {
                 filmService,
                 userService
         );
+    }
 
+    @Test
+    void testGetRecommendations() {
+        User user1 = userStorage.add(makeUser("rec1@mail.ru", "user1"));
+        User user2 = userStorage.add(makeUser("rec2@mail.ru", "user2"));
+
+        Film film1 = filmStorage.add(makeFilm("Фильм 1"));
+        Film film2 = filmStorage.add(makeFilm("Фильм 2"));
+        Film film3 = filmStorage.add(makeFilm("Фильм 3"));
+
+        filmStorage.addLike(film1.getId(), (long) user1.getId());
+        filmStorage.addLike(film1.getId(), (long) user2.getId());
+        filmStorage.addLike(film2.getId(), (long) user2.getId());
+        filmStorage.addLike(film3.getId(), (long) user2.getId());
+
+        List<Film> recommendations = filmStorage.getRecommendations(user1.getId());
+
+        assertThat(recommendations).hasSize(2);
+        assertThat(recommendations.stream().map(Film::getId).toList())
+                .containsExactlyInAnyOrder(film2.getId(), film3.getId());
+    }
+
+    @Test
+    void testGetRecommendationsEmptyWhenNoSimilarUsers() {
+        User user1 = userStorage.add(makeUser("norec@mail.ru", "norec"));
+        Film film1 = filmStorage.add(makeFilm("Одинокий фильм"));
+        filmStorage.addLike(film1.getId(), user1.getId().longValue());
+
+        List<Film> recommendations = filmStorage.getRecommendations(user1.getId());
+
+        assertThat(recommendations).isEmpty();
     }
 
     @Test
@@ -343,8 +374,8 @@ class FilmorateApplicationTests {
         User user2 = userStorage.add(makeUser("u2@mail.ru", "user2"));
 
         filmStorage.addLike(created1.getId(), user1.getId().longValue());
-        filmStorage.addLike(created1.getId(), user2.getId().longValue()); // у film1 два лайка
-        filmStorage.addLike(created2.getId(), user1.getId().longValue()); // у film2 один лайк
+        filmStorage.addLike(created1.getId(), user2.getId().longValue());
+        filmStorage.addLike(created2.getId(), user1.getId().longValue());
 
         List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
 

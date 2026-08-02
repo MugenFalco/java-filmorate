@@ -91,6 +91,11 @@ public class InMemoryFilmStorage implements FilmStorage {
     }
 
     @Override
+    public List<Film> getRecommendations(Integer userId) {
+        return new ArrayList<>();
+    }
+
+    @Override
     public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
         return films.values().stream()
                 .filter(film -> film.getDirectors() != null &&
