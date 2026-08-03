@@ -1,25 +1,63 @@
 package ru.yandex.practicum.filmorate;
 
+import lombok.RequiredArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.controller.UserController;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.service.EventService;
 import ru.yandex.practicum.filmorate.service.UserService;
-import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
+
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@JdbcTest
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@Import({UserDbStorage.class, EventDbStorage.class, FilmDbStorage.class})
 class UserValidationTest {
 
-    private final UserController controller = new UserController(
-            new UserService(new InMemoryUserStorage()),
-            new FilmService(new InMemoryFilmStorage(), new InMemoryUserStorage())
-    );
+    private final UserDbStorage userStorage;
+    private final EventDbStorage eventStorage;
+    private final FilmDbStorage filmStorage;
+    private UserController controller;
+
+    @BeforeEach
+    void setUp() {
+        EventService eventService = new EventService(
+                eventStorage,
+                userStorage
+        );
+
+        UserService userService = new UserService(
+                userStorage,
+                eventService
+        );
+
+        FilmService filmService = new FilmService(
+                filmStorage,
+                userStorage,
+                eventService
+        );
+
+        controller = new UserController(
+                userService,
+                eventService,
+                filmService
+        );
+    }
 
     @Test
     void shouldFailWhenEmailIsEmpty() {

@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.storage.film.FilmStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
@@ -21,11 +23,16 @@ public class FilmService {
 
     private final FilmStorage filmStorage;
     private final UserStorage userStorage;
+    private final EventService eventService;
 
-    public FilmService(@Qualifier("filmDbStorage") FilmStorage filmStorage,
-                       @Qualifier("userDbStorage") UserStorage userStorage) {
+    public FilmService(
+            @Qualifier("filmDbStorage") FilmStorage filmStorage,
+            @Qualifier("userDbStorage") UserStorage userStorage,
+            EventService eventService
+    ) {
         this.filmStorage = filmStorage;
         this.userStorage = userStorage;
+        this.eventService = eventService;
     }
 
     public Film add(Film film) {
@@ -86,17 +93,33 @@ public class FilmService {
     public void addLike(Integer filmId, Long userId) {
         getById(filmId);
         userStorage.getById(userId.intValue())
-                .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+                .orElseThrow(() -> new NotFoundException(
+                        "Пользователь с id " + userId + " не найден"
+                ));
         filmStorage.addLike(filmId, userId);
+        eventService.addEvent(
+                userId.intValue(),
+                EventType.LIKE,
+                Operation.ADD,
+                filmId.longValue()
+        );
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
     }
 
     public void removeLike(Integer filmId, Long userId) {
-        Film film = getById(filmId);
-        if (!film.getLikes().contains(userId)) {
-            throw new NotFoundException("Лайк от пользователя " + userId + " не найден");
+        getById(filmId);
+        int deletedRows = filmStorage.removeLike(filmId, userId);
+        if (deletedRows == 0) {
+            throw new NotFoundException(
+                    "Лайк от пользователя " + userId + " не найден"
+            );
         }
-        filmStorage.removeLike(filmId, userId);
+        eventService.addEvent(
+                userId.intValue(),
+                EventType.LIKE,
+                Operation.REMOVE,
+                filmId.longValue()
+        );
         log.info("Пользователь {} удалил лайк у фильма {}", userId, filmId);
     }
 

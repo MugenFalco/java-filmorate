@@ -7,14 +7,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.model.Event;
+import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.EventService;
 import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.ReviewService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
 import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
@@ -26,11 +31,16 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.tuple;
 
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, UserDbStorage.class, DirectorDbStorage.class, ReviewDbStorage.class})
+@Import({FilmDbStorage.class,
+        UserDbStorage.class,
+        ReviewDbStorage.class,
+        DirectorDbStorage.class,
+        EventDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
@@ -38,7 +48,14 @@ class FilmorateApplicationTests {
     private final DirectorDbStorage directorStorage;
 
     private final ReviewDbStorage reviewStorage;
+    private final EventDbStorage eventStorage;
+
+    private EventService eventService;
+    private FilmService filmService;
+    private UserService userService;
     private ReviewService reviewService;
+
+    // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
 
     @Test
     void testCreateUser() {
@@ -97,6 +114,8 @@ class FilmorateApplicationTests {
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).isEmpty();
     }
+
+    // ===== ТЕСТЫ ФИЛЬМОВ =====
 
     @Test
     void testCreateFilm() {
@@ -277,6 +296,116 @@ class FilmorateApplicationTests {
         ).isZero();
     }
 
+    // ===== ТЕСТЫ ЛЕНТЫ СОБЫТИЙ =====
+    @Test
+    void testFeedContainsEventsInChronologicalOrder() {
+        User user = userStorage.add(
+                makeUser("feed@ya.ru", "feed-user")
+        );
+        User friend = userStorage.add(
+                makeUser("friend@ya.ru", "feed-friend")
+        );
+        Film film = filmStorage.add(
+                makeFilm("Фильм для ленты")
+        );
+
+        // Добавляем и удаляем друга
+        userService.addFriend(user.getId(), friend.getId());
+        userService.removeFriend(user.getId(), friend.getId());
+
+        // Добавляем, обновляем и удаляем отзыв
+        Review review = reviewService.add(
+                makeReview(
+                        "Первоначальный отзыв",
+                        true,
+                        user.getId(),
+                        film.getId()
+                )
+        );
+        Long reviewId = review.getReviewId();
+
+        review.setContent("Изменённый отзыв");
+        review.setIsPositive(false);
+        reviewService.update(review);
+        reviewService.delete(reviewId);
+
+        filmService.addLike(
+                film.getId(),
+                user.getId().longValue()
+        );
+        filmService.removeLike(
+                film.getId(),
+                user.getId().longValue()
+        );
+
+        // Получаем ленту событий и проверяем её содержимое
+        List<Event> feed = eventService.getFeed(user.getId());
+
+        // Проверяем, что лента содержит 7 событий и все они принадлежат пользователю
+        assertThat(feed).hasSize(7);
+        assertThat(feed)
+                .extracting(Event::getUserId)
+                .containsOnly(user.getId());
+
+        // Проверяем, что события в ленте соответствуют ожидаемым типам и операциям
+        assertThat(feed)
+                .extracting(
+                        Event::getEventType,
+                        Event::getOperation,
+                        Event::getEntityId
+                )
+                .containsExactly(
+                        tuple(
+                                EventType.FRIEND,
+                                Operation.ADD,
+                                friend.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.FRIEND,
+                                Operation.REMOVE,
+                                friend.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.ADD,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.UPDATE,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.REVIEW,
+                                Operation.REMOVE,
+                                reviewId
+                        ),
+                        tuple(
+                                EventType.LIKE,
+                                Operation.ADD,
+                                film.getId().longValue()
+                        ),
+                        tuple(
+                                EventType.LIKE,
+                                Operation.REMOVE,
+                                film.getId().longValue()
+                        )
+                );
+
+        // Проверяем, что события в ленте отсортированы по времени
+        assertThat(feed)
+                .extracting(Event::getTimestamp)
+                .isSorted();
+
+        // Проверяем, что у всех событий есть уникальные идентификаторы
+        assertThat(feed)
+                .extracting(Event::getEventId)
+                .doesNotContainNull()
+                .doesNotHaveDuplicates();
+    }
+
+    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+
     private User makeUser(String email, String login) {
         User user = new User();
         user.setEmail(email);
@@ -288,13 +417,12 @@ class FilmorateApplicationTests {
 
     private Film makeFilm(String name) {
         Film film = new Film();
-        Film film1 = film;
-        film1.setName(name);
-        film1.setDescription("Описание");
-        film1.setReleaseDate(LocalDate.of(2000, 1, 1));
-        film1.setDuration(120);
-        film1.setMpa(new Mpa(1, "G"));
-        return film1;
+        film.setName(name);
+        film.setDescription("Описание");
+        film.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film.setDuration(120);
+        film.setMpa(new Mpa(1, "G"));
+        return film;
     }
 
     private Review makeReview(
@@ -313,16 +441,27 @@ class FilmorateApplicationTests {
 
     @BeforeEach
     void setUp() {
-        FilmService filmService = new FilmService(
-                filmStorage,
+        eventService = new EventService(
+                eventStorage,
                 userStorage
         );
-        UserService userService = new UserService(userStorage);
+
+        filmService = new FilmService(
+                filmStorage,
+                userStorage,
+                eventService
+        );
+
+        userService = new UserService(
+                userStorage,
+                eventService
+        );
 
         reviewService = new ReviewService(
                 reviewStorage,
                 filmService,
-                userService
+                userService,
+                eventService
         );
     }
 
