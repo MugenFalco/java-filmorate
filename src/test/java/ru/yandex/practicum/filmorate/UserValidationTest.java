@@ -21,6 +21,7 @@ import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @JdbcTest
@@ -139,6 +140,18 @@ class UserValidationTest {
 
         User result = controller.createUser(user);
         assertEquals("login", result.getName());
+    }
+
+    @Test
+    void shouldCreateUserWithoutBirthday() {
+        User user = new User();
+        user.setEmail("without-birthday@mail.ru");
+        user.setLogin("without-birthday");
+
+        User created = controller.createUser(user);
+        User stored = controller.getUserById(created.getId());
+
+        assertNull(stored.getBirthday());
     }
 
     @Test

@@ -180,6 +180,7 @@ public class FilmDbStorage implements FilmStorage {
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
             loadDirectorsForFilms(films);
+            loadLikesForFilms(films);
         }
 
         return films;
@@ -216,6 +217,7 @@ public class FilmDbStorage implements FilmStorage {
         if (!films.isEmpty()) {
             loadGenresForFilms(films);
             loadDirectorsForFilms(films);
+            loadLikesForFilms(films);
         }
 
         return films;

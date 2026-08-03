@@ -29,7 +29,7 @@
 - genres — справочник жанров (Комедия, Драма, Мультфильм, Триллер, Документальный, Боевик)
 - film_genres — связь фильмов и жанров (многие ко многим)
 - likes — лайки пользователей к фильмам
-- friendships — связи дружбы между пользователями со статусом (UNCONFIRMED / CONFIRMED)
+- friendships — односторонние связи дружбы между пользователями
 
 ### Примеры запросов
 
@@ -76,7 +76,7 @@ SELECT u.*
 FROM users u
 JOIN friendships f ON u.id = f.friend_id
 WHERE f.user_id = 1
-AND f.status = 'CONFIRMED';
+ORDER BY u.id;
 ```
 
 **Список общих друзей двух пользователей:**
@@ -85,8 +85,7 @@ SELECT u.*
 FROM users u
 JOIN friendships f1 ON u.id = f1.friend_id AND f1.user_id = 1
 JOIN friendships f2 ON u.id = f2.friend_id AND f2.user_id = 2
-WHERE f1.status = 'CONFIRMED'
-AND f2.status = 'CONFIRMED';
+ORDER BY u.id;
 ```
 
 ## Запуск

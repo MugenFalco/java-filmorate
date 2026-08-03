@@ -42,7 +42,10 @@ public class UserDbStorage implements UserStorage {
             ps.setString(1, user.getEmail());
             ps.setString(2, user.getLogin());
             ps.setString(3, user.getName());
-            ps.setDate(4, Date.valueOf(user.getBirthday()));
+            Date birthday = user.getBirthday() == null
+                    ? null
+                    : Date.valueOf(user.getBirthday());
+            ps.setDate(4, birthday);
             return ps;
         }, keyHolder);
 
@@ -121,14 +124,17 @@ public class UserDbStorage implements UserStorage {
         user.setEmail(rs.getString("email"));
         user.setLogin(rs.getString("login"));
         user.setName(rs.getString("name"));
-        user.setBirthday(rs.getDate("birthday").toLocalDate());
+        Date birthday = rs.getDate("birthday");
+        if (birthday != null) {
+            user.setBirthday(birthday.toLocalDate());
+        }
         return user;
     }
 
     @Override
     public void addFriend(Integer userId, Integer friendId) {
         jdbcTemplate.update(
-                "INSERT INTO friendships (user_id, friend_id, status) VALUES (?, ?, 'UNCONFIRMED')",
+                "INSERT INTO friendships (user_id, friend_id) VALUES (?, ?)",
                 userId, friendId
         );
     }
