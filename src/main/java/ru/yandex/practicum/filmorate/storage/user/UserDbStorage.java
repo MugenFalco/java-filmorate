@@ -75,7 +75,7 @@ public class UserDbStorage implements UserStorage {
         String sql = "SELECT * FROM users WHERE id=?";
         List<User> users = jdbcTemplate.query(sql, this::mapRowToUser, id);
         if (users.isEmpty()) return Optional.empty();
-        User user = users.get(0);
+        User user = users.getFirst();
         user.setFriends(getFriendsByUserId(user.getId()));
         return Optional.of(user);
     }
