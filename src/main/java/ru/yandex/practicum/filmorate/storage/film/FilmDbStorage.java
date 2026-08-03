@@ -137,22 +137,6 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public void addLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
-                filmId, userId
-        );
-    }
-
-    @Override
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
-        );
-    }
-
-    @Override
     public List<Film> getPopular(int count, Integer genreId, Integer year) {
         StringBuilder sql = new StringBuilder(
                 "SELECT f.*, m.name AS mpa_name " +

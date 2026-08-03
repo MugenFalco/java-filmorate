@@ -12,6 +12,7 @@ import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.service.FilmService;
+import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.service.EventService;
 import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
@@ -25,11 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({UserDbStorage.class, EventDbStorage.class})
+@Import({UserDbStorage.class, EventDbStorage.class, FilmDbStorage.class})
 class UserValidationTest {
 
     private final UserDbStorage userStorage;
     private final EventDbStorage eventStorage;
+    private final FilmDbStorage filmStorage;
     private UserController controller;
 
     @BeforeEach
@@ -44,9 +46,16 @@ class UserValidationTest {
                 eventService
         );
 
+        FilmService filmService = new FilmService(
+                filmStorage,
+                userStorage,
+                eventService
+        );
+
         controller = new UserController(
                 userService,
-                eventService
+                eventService,
+                filmService
         );
     }
 
