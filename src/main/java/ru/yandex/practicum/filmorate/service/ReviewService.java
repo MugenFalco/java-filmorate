@@ -2,6 +2,7 @@ package ru.yandex.practicum.filmorate.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.EventType;
@@ -21,6 +22,7 @@ public class ReviewService {
     private final UserService userService;
     private final EventService eventService;
 
+    @Transactional
     public Review add(Review review) {
         userService.getById(review.getUserId());
         filmService.getById(review.getFilmId());
@@ -40,6 +42,7 @@ public class ReviewService {
         return createdReview;
     }
 
+    @Transactional
     public Review update(Review review) {
         if (review == null || review.getReviewId() == null) {
             throw new ValidationException(
@@ -92,6 +95,7 @@ public class ReviewService {
         return reviewStorage.getAll(filmId, count);
     }
 
+    @Transactional
     public void delete(Long reviewId) {
         Review storedReview = getById(reviewId);
 
@@ -111,12 +115,13 @@ public class ReviewService {
         );
     }
 
+    @Transactional
     public void setRating(Long reviewId, Integer userId, boolean isLike) {
         getById(reviewId);
         userService.getById(userId);
 
         Optional<Boolean> currentRating =
-                reviewStorage.getRating(reviewId, userId);
+                reviewStorage.getRatingForUpdate(reviewId, userId);
 
         if (currentRating.isEmpty()) {
             reviewStorage.addRating(reviewId, userId, isLike);
@@ -132,6 +137,7 @@ public class ReviewService {
         reviewStorage.changeUseful(reviewId, isLike ? 2 : -2);
     }
 
+    @Transactional
     public void removeRating(Long reviewId, Integer userId, boolean isLike) {
         getById(reviewId);
         userService.getById(userId);

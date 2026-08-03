@@ -16,14 +16,14 @@ public class MpaDbStorage {
 
     public List<Mpa> getAll() {
         return jdbcTemplate.query(
-                "SELECT * FROM mpa_ratings ORDER BY id",
+                "SELECT id, name FROM mpa_ratings ORDER BY id",
                 (rs, rn) -> new Mpa(rs.getInt("id"), rs.getString("name"))
         );
     }
 
     public Mpa getById(Integer id) {
         List<Mpa> ratings = jdbcTemplate.query(
-                "SELECT * FROM mpa_ratings WHERE id=?",
+                "SELECT id, name FROM mpa_ratings WHERE id = ?",
                 (rs, rn) -> new Mpa(rs.getInt("id"), rs.getString("name")),
                 id
         );

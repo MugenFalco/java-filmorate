@@ -11,7 +11,7 @@ public interface UserStorage {
 
     User update(User user);
 
-    void delete(Integer id);
+    int delete(Integer id);
 
     Optional<User> getById(Integer id);
 

@@ -11,6 +11,7 @@ import ru.yandex.practicum.filmorate.model.Event;
 import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
 import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
@@ -22,6 +23,8 @@ import ru.yandex.practicum.filmorate.service.UserService;
 import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
 import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
+import ru.yandex.practicum.filmorate.storage.mpa.MpaDbStorage;
 import ru.yandex.practicum.filmorate.storage.review.ReviewDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
@@ -40,12 +43,16 @@ import static org.assertj.core.api.Assertions.tuple;
         UserDbStorage.class,
         ReviewDbStorage.class,
         DirectorDbStorage.class,
+        GenreDbStorage.class,
+        MpaDbStorage.class,
         EventDbStorage.class})
 class FilmorateApplicationTests {
 
     private final FilmDbStorage filmStorage;
     private final UserDbStorage userStorage;
     private final DirectorDbStorage directorStorage;
+    private final GenreDbStorage genreStorage;
+    private final MpaDbStorage mpaStorage;
 
     private final ReviewDbStorage reviewStorage;
     private final EventDbStorage eventStorage;
@@ -55,7 +62,7 @@ class FilmorateApplicationTests {
     private UserService userService;
     private ReviewService reviewService;
 
-    // ===== ТЕСТЫ ПОЛЬЗОВАТЕЛЕЙ =====
+    // Пользователи
 
     @Test
     void testCreateUser() {
@@ -102,7 +109,7 @@ class FilmorateApplicationTests {
         userStorage.addFriend(user1.getId(), user2.getId());
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).hasSize(1);
-        assertThat(friends.getFirst().getId()).isEqualTo(user2.getId());  // ← ИСПРАВЛЕНО
+        assertThat(friends.getFirst().getId()).isEqualTo(user2.getId());
     }
 
     @Test
@@ -115,7 +122,7 @@ class FilmorateApplicationTests {
         assertThat(friends).isEmpty();
     }
 
-    // ===== ТЕСТЫ ФИЛЬМОВ =====
+    // Фильмы
 
     @Test
     void testCreateFilm() {
@@ -171,6 +178,29 @@ class FilmorateApplicationTests {
                 .hasValueSatisfying(unlikedFilm ->
                         assertThat(unlikedFilm.getLikes()).isEmpty()
                 );
+    }
+
+    @Test
+    void shouldSaveFilmRelationsOnlyOnceForEachId() {
+        Director director = directorStorage.add(new Director(null, "Режиссёр"));
+        Film film = makeFilm("Фильм без повторяющихся связей");
+        film.setGenres(List.of(
+                new Genre(1, "Комедия"),
+                new Genre(1, "Другое название")
+        ));
+        film.setDirectors(List.of(
+                director,
+                new Director(director.getId(), "Другое имя")
+        ));
+
+        Film created = filmStorage.add(film);
+
+        assertThat(created.getGenres())
+                .extracting(Genre::getId)
+                .containsExactly(1);
+        assertThat(created.getDirectors())
+                .extracting(Director::getId)
+                .containsExactly(director.getId());
     }
 
     @Test
@@ -294,7 +324,7 @@ class FilmorateApplicationTests {
         ).isZero();
     }
 
-    // ===== ТЕСТЫ ЛЕНТЫ СОБЫТИЙ =====
+    // Лента событий
     @Test
     void testFeedContainsEventsInChronologicalOrder() {
         User user = userStorage.add(
@@ -307,11 +337,9 @@ class FilmorateApplicationTests {
                 makeFilm("Фильм для ленты")
         );
 
-        // Добавляем и удаляем друга
         userService.addFriend(user.getId(), friend.getId());
         userService.removeFriend(user.getId(), friend.getId());
 
-        // Добавляем, обновляем и удаляем отзыв
         Review review = reviewService.add(
                 makeReview(
                         "Первоначальный отзыв",
@@ -336,16 +364,13 @@ class FilmorateApplicationTests {
                 user.getId().longValue()
         );
 
-        // Получаем ленту событий и проверяем её содержимое
         List<Event> feed = eventService.getFeed(user.getId());
 
-        // Проверяем, что лента содержит 7 событий и все они принадлежат пользователю
         assertThat(feed).hasSize(7);
         assertThat(feed)
                 .extracting(Event::getUserId)
                 .containsOnly(user.getId());
 
-        // Проверяем, что события в ленте соответствуют ожидаемым типам и операциям
         assertThat(feed)
                 .extracting(
                         Event::getEventType,
@@ -390,19 +415,17 @@ class FilmorateApplicationTests {
                         )
                 );
 
-        // Проверяем, что события в ленте отсортированы по времени
         assertThat(feed)
                 .extracting(Event::getTimestamp)
                 .isSorted();
 
-        // Проверяем, что у всех событий есть уникальные идентификаторы
         assertThat(feed)
                 .extracting(Event::getEventId)
                 .doesNotContainNull()
                 .doesNotHaveDuplicates();
     }
 
-    // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
+    // Вспомогательные методы
 
     private User makeUser(String email, String login) {
         User user = new User();
@@ -447,7 +470,10 @@ class FilmorateApplicationTests {
         filmService = new FilmService(
                 filmStorage,
                 userStorage,
-                eventService
+                eventService,
+                mpaStorage,
+                genreStorage,
+                directorStorage
         );
 
         userService = new UserService(
