@@ -70,7 +70,7 @@ public class DirectorDbStorage implements DirectorStorage {
             return Optional.empty();
         }
 
-        return Optional.of(directors.get(0));
+        return Optional.of(directors.getFirst());
     }
 
     @Override

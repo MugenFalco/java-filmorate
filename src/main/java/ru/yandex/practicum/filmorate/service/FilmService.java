@@ -155,24 +155,32 @@ public class FilmService {
             throw new ValidationException("Параметр 'by' не может быть пустым");
         }
 
-        Set<String> searchFields = Arrays.stream(by.split(","))
+        Set<String> searchFields = Arrays.stream(by.split(",", -1))
                 .map(String::trim)
                 .map(String::toLowerCase)
                 .collect(Collectors.toSet());
 
+        Set<String> allowedFields = Set.of("title", "director");
+
         boolean searchTitle = searchFields.contains("title");
         boolean searchDirector = searchFields.contains("director");
 
-        if (!searchTitle && !searchDirector) {
-            throw new ValidationException("Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'");
+        if (!allowedFields.containsAll(searchFields)) {
+            throw new ValidationException(
+                    "Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'"
+            );
         }
 
         return filmStorage.search(query, searchTitle, searchDirector);
     }
 
     public List<Film> getCommonFilms(Integer userId, Integer friendId) {
-        getById(userId);
-        getById(friendId);
+        userStorage.getById(userId)
+                .orElseThrow(() ->
+                        new NotFoundException("Пользователь с id " + userId + " не найден"));
+        userStorage.getById(friendId)
+                .orElseThrow(() ->
+                        new NotFoundException("Пользователь с id " + friendId + " не найден"));
         return filmStorage.getCommonFilms(userId, friendId);
     }
 

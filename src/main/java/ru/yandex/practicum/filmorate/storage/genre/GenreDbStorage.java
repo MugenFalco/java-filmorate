@@ -30,6 +30,6 @@ public class GenreDbStorage {
         if (genres.isEmpty()) {
             throw new NotFoundException("Жанр с id " + id + " не найден");
         }
-        return genres.get(0);
+        return genres.getFirst();
     }
 }

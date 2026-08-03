@@ -102,7 +102,7 @@ class FilmorateApplicationTests {
         userStorage.addFriend(user1.getId(), user2.getId());
         List<User> friends = userStorage.getFriends(user1.getId());
         assertThat(friends).hasSize(1);
-        assertThat(friends.get(0).getId()).isEqualTo(user2.getId());  // ← ИСПРАВЛЕНО
+        assertThat(friends.getFirst().getId()).isEqualTo(user2.getId());  // ← ИСПРАВЛЕНО
     }
 
     @Test
@@ -235,7 +235,7 @@ class FilmorateApplicationTests {
         Review secondReview = reviewService.add(
                 makeReview(
                         "Второй отзыв",
-                        true,
+                        false,
                         author.getId(),
                         film.getId()
                 )

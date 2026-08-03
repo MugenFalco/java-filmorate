@@ -30,6 +30,6 @@ public class MpaDbStorage {
         if (ratings.isEmpty()) {
             throw new NotFoundException("Рейтинг с id " + id + " не найден");
         }
-        return ratings.get(0);
+        return ratings.getFirst();
     }
 }
