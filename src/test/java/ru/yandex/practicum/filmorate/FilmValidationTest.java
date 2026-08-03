@@ -1,23 +1,55 @@
 package ru.yandex.practicum.filmorate;
 
+import lombok.RequiredArgsConstructor;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
+import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.service.EventService;
 import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
-import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
+import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
+import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@JdbcTest
+@AutoConfigureTestDatabase
+@RequiredArgsConstructor(onConstructor_ = @Autowired)
+@Import({FilmDbStorage.class, UserDbStorage.class, EventDbStorage.class})
 class FilmValidationTest {
 
-    private final FilmController controller = new FilmController(
-            new FilmService(new InMemoryFilmStorage(), new InMemoryUserStorage())
-    );
+    private final FilmDbStorage filmStorage;
+    private final UserDbStorage userStorage;
+    private FilmController controller;
+    private final EventDbStorage eventStorage;
+
+    @BeforeEach
+    void setUp() {
+        EventService eventService = new EventService(
+                eventStorage,
+                userStorage
+        );
+
+        FilmService filmService = new FilmService(
+                filmStorage,
+                userStorage,
+                eventService
+        );
+
+        controller = new FilmController(filmService);
+    }
 
     @Test
     void shouldFailWhenNameIsEmpty() {
@@ -64,8 +96,10 @@ class FilmValidationTest {
     void shouldPassWhenReleaseDateIsExactlyBoundary() {
         Film film = new Film();
         film.setName("Название");
+        film.setDescription("Описание");
         film.setDuration(120);
         film.setReleaseDate(LocalDate.of(1895, 12, 28));
+        film.setMpa(new Mpa(1, "G"));
         assertDoesNotThrow(() -> controller.addFilm(film));
     }
 
@@ -89,6 +123,7 @@ class FilmValidationTest {
         film.setDescription("Описание");
         film.setReleaseDate(LocalDate.of(2000, 1, 1));
         film.setDuration(120);
+        film.setMpa(new Mpa(1, "G"));
         Film created = controller.addFilm(film);
 
         Film update = new Film();
@@ -119,6 +154,9 @@ class FilmValidationTest {
         Film film = new Film();
         film.setName("Фильм для удаления");
         film.setDuration(120);
+        film.setDescription("Описание");
+        film.setReleaseDate(LocalDate.of(2000, 1, 1));
+        film.setMpa(new Mpa(1, "G"));
         Film created = controller.addFilm(film);
 
         controller.deleteFilm(created.getId());

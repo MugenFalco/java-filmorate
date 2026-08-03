@@ -18,7 +18,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -89,7 +96,7 @@ public class FilmDbStorage implements FilmStorage {
                 "JOIN mpa_ratings m ON f.mpa_id = m.id WHERE f.id=?";
         List<Film> films = jdbcTemplate.query(sql, this::mapRowToFilm, id);
         if (films.isEmpty()) return Optional.empty();
-        Film film = films.get(0);
+        Film film = films.getFirst();
         film.setGenres(getGenresByFilmId(film.getId()));
         film.setDirectors(getDirectorsByFilmId(film.getId()));
         film.setLikes(getLikesByFilmId(film.getId()));
@@ -128,22 +135,6 @@ public class FilmDbStorage implements FilmStorage {
             films.forEach(f -> f.setLikes(new HashSet<>()));
         }
         return films;
-    }
-
-    @Override
-    public void addLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
-                filmId, userId
-        );
-    }
-
-    @Override
-    public void removeLike(Integer filmId, Long userId) {
-        jdbcTemplate.update(
-                "DELETE FROM likes WHERE film_id=? AND user_id=?",
-                filmId, userId
-        );
     }
 
     @Override
@@ -427,6 +418,22 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         return film;
+    }
+
+    public void addLike(Integer filmId, Long userId) {
+        jdbcTemplate.update(
+                "INSERT INTO likes (film_id, user_id) VALUES (?, ?)",
+                filmId, userId
+        );
+    }
+
+    @Override
+    public int removeLike(Integer filmId, Long userId) {
+        return jdbcTemplate.update(
+                "DELETE FROM likes WHERE film_id=? AND user_id=?",
+                filmId,
+                userId
+        );
     }
 
     private void loadGenresForFilms(List<Film> films) {

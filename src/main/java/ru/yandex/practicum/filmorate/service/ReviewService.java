@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.EventType;
+import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.model.Review;
 import ru.yandex.practicum.filmorate.storage.review.ReviewStorage;
 
@@ -17,6 +19,7 @@ public class ReviewService {
     private final ReviewStorage reviewStorage;
     private final FilmService filmService;
     private final UserService userService;
+    private final EventService eventService;
 
     public Review add(Review review) {
         userService.getById(review.getUserId());
@@ -25,7 +28,16 @@ public class ReviewService {
         review.setReviewId(null);
         review.setUseful(0);
 
-        return reviewStorage.add(review);
+        Review createdReview = reviewStorage.add(review);
+
+        eventService.addEvent(
+                createdReview.getUserId(),
+                EventType.REVIEW,
+                Operation.ADD,
+                createdReview.getReviewId()
+        );
+
+        return createdReview;
     }
 
     public Review update(Review review) {
@@ -43,6 +55,7 @@ public class ReviewService {
                         "Содержание отзыва не может быть пустым"
                 );
             }
+
             storedReview.setContent(review.getContent());
         }
 
@@ -50,7 +63,16 @@ public class ReviewService {
             storedReview.setIsPositive(review.getIsPositive());
         }
 
-        return reviewStorage.update(storedReview);
+        Review updatedReview = reviewStorage.update(storedReview);
+
+        eventService.addEvent(
+                updatedReview.getUserId(),
+                EventType.REVIEW,
+                Operation.UPDATE,
+                updatedReview.getReviewId()
+        );
+
+        return updatedReview;
     }
 
     public Review getById(Long reviewId) {
@@ -71,6 +93,8 @@ public class ReviewService {
     }
 
     public void delete(Long reviewId) {
+        Review storedReview = getById(reviewId);
+
         int deletedRows = reviewStorage.delete(reviewId);
 
         if (deletedRows == 0) {
@@ -78,6 +102,13 @@ public class ReviewService {
                     "Отзыв с id " + reviewId + " не найден"
             );
         }
+
+        eventService.addEvent(
+                storedReview.getUserId(),
+                EventType.REVIEW,
+                Operation.REMOVE,
+                storedReview.getReviewId()
+        );
     }
 
     public void setRating(Long reviewId, Integer userId, boolean isLike) {
