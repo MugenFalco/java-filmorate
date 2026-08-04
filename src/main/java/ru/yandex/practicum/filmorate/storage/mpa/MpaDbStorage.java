@@ -16,20 +16,20 @@ public class MpaDbStorage {
 
     public List<Mpa> getAll() {
         return jdbcTemplate.query(
-                "SELECT id, name FROM mpa_ratings ORDER BY id",
+                "SELECT * FROM mpa_ratings ORDER BY id",
                 (rs, rn) -> new Mpa(rs.getInt("id"), rs.getString("name"))
         );
     }
 
     public Mpa getById(Integer id) {
         List<Mpa> ratings = jdbcTemplate.query(
-                "SELECT id, name FROM mpa_ratings WHERE id = ?",
+                "SELECT * FROM mpa_ratings WHERE id=?",
                 (rs, rn) -> new Mpa(rs.getInt("id"), rs.getString("name")),
                 id
         );
         if (ratings.isEmpty()) {
             throw new NotFoundException("Рейтинг с id " + id + " не найден");
         }
-        return ratings.getFirst();
+        return ratings.get(0);
     }
 }
