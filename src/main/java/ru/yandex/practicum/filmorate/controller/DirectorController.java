@@ -10,10 +10,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Director;
-import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
+import ru.yandex.practicum.filmorate.service.DirectorService;
 
 import java.util.List;
 
@@ -23,45 +21,35 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DirectorController {
 
-    private final DirectorDbStorage directorDbStorage;
+    private final DirectorService directorService;
 
     @GetMapping
     public List<Director> getAll() {
         log.info("GET /directors - получение всех режиссёров");
-        return directorDbStorage.getAll();
+        return directorService.getAll();
     }
 
     @GetMapping("/{id}")
     public Director getById(@PathVariable Integer id) {
         log.info("GET /directors/{} - получение режиссёра по id", id);
-        return directorDbStorage.getById(id)
-                .orElseThrow(() -> new NotFoundException("Режиссёр с id " + id + " не найден"));
+        return directorService.getById(id);
     }
 
     @PostMapping
     public Director create(@RequestBody Director director) {
         log.info("POST /directors - создание режиссёра: {}", director.getName());
-        if (director.getName() == null || director.getName().isBlank()) {
-            throw new ValidationException("Имя режиссёра не может быть пустым");
-        }
-        return directorDbStorage.add(director);
+        return directorService.add(director);
     }
 
     @PutMapping
     public Director update(@RequestBody Director director) {
         log.info("PUT /directors - обновление режиссёра: {}", director.getName());
-        if (director.getId() == null) {
-            throw new ValidationException("ID режиссёра должен быть указан");
-        }
-        if (director.getName() == null || director.getName().isBlank()) {
-            throw new ValidationException("Имя режиссёра не может быть пустым");
-        }
-        return directorDbStorage.update(director);
+        return directorService.update(director);
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Integer id) {
         log.info("DELETE /directors/{} - удаление режиссёра", id);
-        directorDbStorage.delete(id);
+        directorService.delete(id);
     }
 }

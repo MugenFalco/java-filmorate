@@ -17,7 +17,7 @@ public interface ReviewStorage {
 
     List<Review> getAll(Integer filmId, int count);
 
-    Optional<Boolean> getRating(Long reviewId, Integer userId);
+    Optional<Boolean> getRatingForUpdate(Long reviewId, Integer userId);
 
     void addRating(Long reviewId, Integer userId, boolean isLike);
 

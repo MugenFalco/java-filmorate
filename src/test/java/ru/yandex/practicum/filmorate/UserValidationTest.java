@@ -1,5 +1,8 @@
 package ru.yandex.practicum.filmorate;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,28 +14,44 @@ import ru.yandex.practicum.filmorate.controller.UserController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.service.FilmService;
-import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
 import ru.yandex.practicum.filmorate.service.EventService;
+import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
+import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 import ru.yandex.practicum.filmorate.storage.event.EventDbStorage;
+import ru.yandex.practicum.filmorate.storage.film.FilmDbStorage;
+import ru.yandex.practicum.filmorate.storage.genre.GenreDbStorage;
+import ru.yandex.practicum.filmorate.storage.mpa.MpaDbStorage;
 import ru.yandex.practicum.filmorate.storage.user.UserDbStorage;
 
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({UserDbStorage.class, EventDbStorage.class, FilmDbStorage.class})
+@Import({UserDbStorage.class,
+        EventDbStorage.class,
+        FilmDbStorage.class,
+        GenreDbStorage.class,
+        MpaDbStorage.class,
+        DirectorDbStorage.class})
 class UserValidationTest {
 
     private final UserDbStorage userStorage;
     private final EventDbStorage eventStorage;
     private final FilmDbStorage filmStorage;
+    private final GenreDbStorage genreStorage;
+    private final MpaDbStorage mpaStorage;
+    private final DirectorDbStorage directorStorage;
     private UserController controller;
+    private final Validator validator = Validation
+            .buildDefaultValidatorFactory()
+            .getValidator();
 
     @BeforeEach
     void setUp() {
@@ -49,7 +68,10 @@ class UserValidationTest {
         FilmService filmService = new FilmService(
                 filmStorage,
                 userStorage,
-                eventService
+                eventService,
+                mpaStorage,
+                genreStorage,
+                directorStorage
         );
 
         controller = new UserController(
@@ -66,11 +88,7 @@ class UserValidationTest {
         user.setLogin("login");
         user.setBirthday(LocalDate.of(1990, 1, 1));
 
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> controller.createUser(user)
-        );
-        assertEquals("Email не может быть пустым", ex.getMessage());
+        assertValidationMessage(user, "Email не может быть пустым");
     }
 
     @Test
@@ -80,11 +98,7 @@ class UserValidationTest {
         user.setLogin("login");
         user.setBirthday(LocalDate.of(1990, 1, 1));
 
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> controller.createUser(user)
-        );
-        assertEquals("Email должен содержать символ @", ex.getMessage());
+        assertValidationMessage(user, "Email должен содержать символ @");
     }
 
     @Test
@@ -94,11 +108,7 @@ class UserValidationTest {
         user.setLogin("");
         user.setBirthday(LocalDate.of(1990, 1, 1));
 
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> controller.createUser(user)
-        );
-        assertEquals("Логин не может быть пустым", ex.getMessage());
+        assertValidationMessage(user, "Логин не может быть пустым");
     }
 
     @Test
@@ -108,11 +118,7 @@ class UserValidationTest {
         user.setLogin("login with spaces");
         user.setBirthday(LocalDate.of(1990, 1, 1));
 
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> controller.createUser(user)
-        );
-        assertEquals("Логин не может содержать пробелы", ex.getMessage());
+        assertValidationMessage(user, "Логин не может содержать пробелы");
     }
 
     @Test
@@ -122,11 +128,7 @@ class UserValidationTest {
         user.setLogin("login");
         user.setBirthday(LocalDate.of(2446, 8, 20));
 
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> controller.createUser(user)
-        );
-        assertEquals("Дата рождения не может быть в будущем", ex.getMessage());
+        assertValidationMessage(user, "Дата рождения не может быть в будущем");
     }
 
     @Test
@@ -139,6 +141,18 @@ class UserValidationTest {
 
         User result = controller.createUser(user);
         assertEquals("login", result.getName());
+    }
+
+    @Test
+    void shouldCreateUserWithoutBirthday() {
+        User user = new User();
+        user.setEmail("without-birthday@mail.ru");
+        user.setLogin("without-birthday");
+
+        User created = controller.createUser(user);
+        User stored = controller.getUserById(created.getId());
+
+        assertNull(stored.getBirthday());
     }
 
     @Test
@@ -165,5 +179,14 @@ class UserValidationTest {
         );
 
         assertEquals("Пользователь с id 9999 не найден", ex.getMessage());
+    }
+
+    private void assertValidationMessage(User user, String expectedMessage) {
+        assertTrue(
+                validator.validate(user)
+                        .stream()
+                        .map(ConstraintViolation::getMessage)
+                        .anyMatch(expectedMessage::equals)
+        );
     }
 }

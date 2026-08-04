@@ -3,19 +3,23 @@ package ru.yandex.practicum.filmorate.storage.director;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Director;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Repository
@@ -23,6 +27,7 @@ import java.util.Optional;
 public class DirectorDbStorage implements DirectorStorage {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     @Override
     public Director add(Director director) {
@@ -41,29 +46,37 @@ public class DirectorDbStorage implements DirectorStorage {
     }
 
     @Override
-    public Director update(Director director) {
-        getById(director.getId()).orElseThrow(() ->
-                new NotFoundException("Режиссёр с id " + director.getId() + " не найден"));
+    public int update(Director director) {
+        int updatedRows = jdbcTemplate.update(
+                "UPDATE directors SET name = ? WHERE id = ?",
+                director.getName(),
+                director.getId()
+        );
 
-        String sql = "UPDATE directors SET name=? WHERE id=?";
-        jdbcTemplate.update(sql, director.getName(), director.getId());
+        if (updatedRows > 0) {
+            log.info("Обновлён режиссёр: {}", director.getName());
+        }
 
-        log.info("Обновлён режиссёр: {}", director.getName());
-        return director;
+        return updatedRows;
     }
 
     @Override
-    public void delete(Integer id) {
-        getById(id).orElseThrow(() ->
-                new NotFoundException("Режиссёр с id " + id + " не найден"));
+    public int delete(Integer id) {
+        int deletedRows = jdbcTemplate.update(
+                "DELETE FROM directors WHERE id = ?",
+                id
+        );
 
-        jdbcTemplate.update("DELETE FROM directors WHERE id=?", id);
-        log.info("Удалён режиссёр с id: {}", id);
+        if (deletedRows > 0) {
+            log.info("Удалён режиссёр с id: {}", id);
+        }
+
+        return deletedRows;
     }
 
     @Override
     public Optional<Director> getById(Integer id) {
-        String sql = "SELECT * FROM directors WHERE id=?";
+        String sql = "SELECT id, name FROM directors WHERE id = ?";
         List<Director> directors = jdbcTemplate.query(sql, this::mapRowToDirector, id);
 
         if (directors.isEmpty()) {
@@ -75,8 +88,22 @@ public class DirectorDbStorage implements DirectorStorage {
 
     @Override
     public List<Director> getAll() {
-        String sql = "SELECT * FROM directors ORDER BY id";
+        String sql = "SELECT id, name FROM directors ORDER BY id";
         return jdbcTemplate.query(sql, this::mapRowToDirector);
+    }
+
+    @Override
+    public Set<Integer> getExistingIds(Collection<Integer> ids) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+
+        MapSqlParameterSource params = new MapSqlParameterSource("ids", ids);
+        return new HashSet<>(namedJdbcTemplate.query(
+                "SELECT id FROM directors WHERE id IN (:ids)",
+                params,
+                (resultSet, rowNum) -> resultSet.getInt("id")
+        ));
     }
 
     private Director mapRowToDirector(ResultSet rs, int rowNum) throws SQLException {
