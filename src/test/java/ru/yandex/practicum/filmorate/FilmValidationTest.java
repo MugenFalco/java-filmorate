@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import ru.yandex.practicum.filmorate.controller.FilmController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
+import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.model.Mpa;
@@ -147,6 +148,17 @@ class FilmValidationTest {
     }
 
     @Test
+    void shouldFailWhenDirectorDoesNotExist() {
+        Film film = validFilm();
+        film.setDirectors(List.of(new Director(9999, null)));
+
+        assertThrows(
+                NotFoundException.class,
+                () -> controller.addFilm(film)
+        );
+    }
+
+    @Test
     void shouldFailWhenDurationIsNegative() {
         Film film = new Film();
         film.setName("Название");
@@ -242,6 +254,22 @@ class FilmValidationTest {
         );
 
         assertEquals("Фильм с указанным id не найден", ex.getMessage());
+    }
+
+    @Test
+    void shouldFailWhenSearchQueryIsEmpty() {
+        assertThrows(
+                ValidationException.class,
+                () -> controller.searchFilms("", "title")
+        );
+    }
+
+    @Test
+    void shouldFailWhenSearchByIsInvalid() {
+        assertThrows(
+                ValidationException.class,
+                () -> controller.searchFilms("крад", "actor")
+        );
     }
 
     private void assertValidationMessage(Film film, String expectedMessage) {

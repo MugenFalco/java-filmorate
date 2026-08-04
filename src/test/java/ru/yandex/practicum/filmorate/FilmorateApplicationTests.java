@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Event;
 import ru.yandex.practicum.filmorate.model.EventType;
 import ru.yandex.practicum.filmorate.model.Director;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @JdbcTest
 @AutoConfigureTestDatabase
@@ -547,6 +549,65 @@ class FilmorateApplicationTests {
     }
 
     @Test
+    void testGetFilmsByDirectorSortedByYear() {
+        Director director = directorStorage.add(new Director(null, "Режиссёр по годам"));
+
+        Film older = makeFilm("Старый фильм");
+        older.setReleaseDate(LocalDate.of(1990, 1, 1));
+        older.setDirectors(List.of(director));
+        Film createdOlder = filmStorage.add(older);
+
+        Film newer = makeFilm("Новый фильм");
+        newer.setReleaseDate(LocalDate.of(2010, 1, 1));
+        newer.setDirectors(List.of(director));
+        Film createdNewer = filmStorage.add(newer);
+
+        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "year");
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactly(createdOlder.getId(), createdNewer.getId());
+    }
+
+    @Test
+    void shouldFailWhenGettingFilmsByNonExistentDirector() {
+        assertThrows(
+                NotFoundException.class,
+                () -> filmStorage.getFilmsByDirector(9999, "likes")
+        );
+    }
+    @Test
+    void testGetCommonFriends() {
+        User user1 = userStorage.add(makeUser("cf1@mail.ru", "cf1"));
+        User user2 = userStorage.add(makeUser("cf2@mail.ru", "cf2"));
+        User commonFriend = userStorage.add(makeUser("cf3@mail.ru", "cf3"));
+        User onlyUser1Friend = userStorage.add(makeUser("cf4@mail.ru", "cf4"));
+
+        userStorage.addFriend(user1.getId(), commonFriend.getId());
+        userStorage.addFriend(user2.getId(), commonFriend.getId());
+        userStorage.addFriend(user1.getId(), onlyUser1Friend.getId());
+
+        List<User> result = userStorage.getCommonFriends(user1.getId(), user2.getId());
+
+        assertThat(result)
+                .extracting(User::getId)
+                .containsExactly(commonFriend.getId());
+    }
+
+    @Test
+    void testGetCommonFriendsEmptyWhenNoOverlap() {
+        User user1 = userStorage.add(makeUser("nc1@mail.ru", "nc1"));
+        User user2 = userStorage.add(makeUser("nc2@mail.ru", "nc2"));
+        User friendOfUser1 = userStorage.add(makeUser("nc3@mail.ru", "nc3"));
+
+        userStorage.addFriend(user1.getId(), friendOfUser1.getId());
+
+        List<User> result = userStorage.getCommonFriends(user1.getId(), user2.getId());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     void testGetCommonFilms() {
         User user1 = userStorage.add(makeUser("common1@mail.ru", "common1"));
         User user2 = userStorage.add(makeUser("common2@mail.ru", "common2"));
@@ -567,5 +628,116 @@ class FilmorateApplicationTests {
         assertThat(commonFilms).hasSize(2);
         assertThat(commonFilms.stream().map(Film::getId).toList())
                 .containsExactlyInAnyOrder(film1.getId(), film2.getId());
+    }
+
+    @Test
+    void testGetPopularOrdersByLikesDescending() {
+        Film unpopular = filmStorage.add(makeFilm("Непопулярный"));
+        Film popular = filmStorage.add(makeFilm("Популярный"));
+
+        User user1 = userStorage.add(makeUser("pop1@mail.ru", "pop1"));
+        User user2 = userStorage.add(makeUser("pop2@mail.ru", "pop2"));
+
+        filmStorage.addLike(popular.getId(), user1.getId().longValue());
+        filmStorage.addLike(popular.getId(), user2.getId().longValue());
+        filmStorage.addLike(unpopular.getId(), user1.getId().longValue());
+
+        List<Film> result = filmStorage.getPopular(10, null, null);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsSubsequence(popular.getId(), unpopular.getId());
+    }
+
+    @Test
+    void testGetPopularFiltersByGenre() {
+        Film comedy = makeFilm("Комедия");
+        comedy.setGenres(List.of(new Genre(1, "Комедия")));
+        Film createdComedy = filmStorage.add(comedy);
+
+        Film drama = makeFilm("Драма");
+        drama.setGenres(List.of(new Genre(2, "Драма")));
+        filmStorage.add(drama);
+
+        List<Film> result = filmStorage.getPopular(10, 1, null);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactly(createdComedy.getId());
+    }
+
+    @Test
+    void testGetPopularFiltersByYear() {
+        Film old = makeFilm("Фильм 1990");
+        old.setReleaseDate(LocalDate.of(1990, 1, 1));
+        filmStorage.add(old);
+
+        Film matching = makeFilm("Фильм 2015");
+        matching.setReleaseDate(LocalDate.of(2015, 6, 1));
+        Film createdMatching = filmStorage.add(matching);
+
+        List<Film> result = filmStorage.getPopular(10, null, 2015);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactly(createdMatching.getId());
+    }
+
+    @Test
+    void testSearchByTitle() {
+        Film created = filmStorage.add(makeFilm("Крадущийся тигр"));
+        filmStorage.add(makeFilm("Другой фильм"));
+
+        List<Film> result = filmStorage.search("крад", true, false);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactly(created.getId());
+    }
+
+    @Test
+    void testSearchByDirector() {
+        Director director = directorStorage.add(new Director(null, "Крадовски"));
+        Film film = makeFilm("Обычное название");
+        film.setDirectors(List.of(director));
+        Film created = filmStorage.add(film);
+        filmStorage.add(makeFilm("Фильм без режиссёра"));
+
+        List<Film> result = filmStorage.search("крад", false, true);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactly(created.getId());
+    }
+
+    @Test
+    void testSearchByTitleAndDirector() {
+        Director director = directorStorage.add(new Director(null, "Крадовски"));
+        Film byTitle = filmStorage.add(makeFilm("Крадущийся тигр"));
+
+        Film byDirector = makeFilm("Обычное название");
+        byDirector.setDirectors(List.of(director));
+        Film createdByDirector = filmStorage.add(byDirector);
+
+        filmStorage.add(makeFilm("Не подходит вообще"));
+
+        List<Film> result = filmStorage.search("крад", true, true);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .containsExactlyInAnyOrder(byTitle.getId(), createdByDirector.getId());
+    }
+
+    @Test
+    void testSearchEscapesSqlWildcards() {
+        filmStorage.add(makeFilm("100% фильм"));
+        Film unrelated = filmStorage.add(makeFilm("Обычное название"));
+
+        List<Film> result = filmStorage.search("100%", true, false);
+
+        assertThat(result)
+                .extracting(Film::getId)
+                .doesNotContain(unrelated.getId())
+                .hasSize(1);
     }
 }
