@@ -203,7 +203,7 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         String sql = """
-                SELECT f.*, m.name AS mpa_name, COUNT(l.user_id) AS likes_count
+                SELECT f.*, m.name AS mpa_name
                 FROM films f
                 JOIN mpa_ratings m ON f.mpa_id = m.id
                 JOIN film_directors fd ON f.id = fd.film_id
@@ -247,7 +247,7 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         String sql = """
-                SELECT f.*, m.name AS mpa_name, COUNT(DISTINCT l.user_id) AS popularity
+                SELECT f.*, m.name AS mpa_name
                 FROM films f
                 JOIN mpa_ratings m ON f.mpa_id = m.id
                 LEFT JOIN likes l ON f.id = l.film_id
