@@ -428,6 +428,17 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
+    public boolean hasLike(Integer filmId, Long userId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM likes WHERE film_id = ? AND user_id = ?",
+                Integer.class,
+                filmId,
+                userId
+        );
+        return count != null && count > 0;
+    }
+
+    @Override
     public int removeLike(Integer filmId, Long userId) {
         return jdbcTemplate.update(
                 "DELETE FROM likes WHERE film_id = ? AND user_id = ?",

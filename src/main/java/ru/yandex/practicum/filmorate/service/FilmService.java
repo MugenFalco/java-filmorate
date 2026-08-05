@@ -68,12 +68,12 @@ public class FilmService {
         if (film.getMpa() != null) {
             oldFilm.setMpa(film.getMpa());
         }
-        if (film.getGenres() != null) {
-            oldFilm.setGenres(film.getGenres());
-        }
-        if (film.getDirectors() != null) {
-            oldFilm.setDirectors(film.getDirectors());
-        }
+        oldFilm.setGenres(
+                film.getGenres() != null ? film.getGenres() : new ArrayList<>()
+        );
+        oldFilm.setDirectors(
+                film.getDirectors() != null ? film.getDirectors() : new ArrayList<>()
+        );
 
         validateReferences(oldFilm);
         return filmStorage.update(oldFilm);
@@ -105,6 +105,12 @@ public class FilmService {
                 .orElseThrow(() -> new NotFoundException(
                         "Пользователь с id " + userId + " не найден"
                 ));
+
+        if (filmStorage.hasLike(filmId, userId)) {
+            log.info("Пользователь {} уже лайкал фильм {}", userId, filmId);
+            return;
+        }
+
         filmStorage.addLike(filmId, userId);
         eventService.addEvent(
                 userId.intValue(),
@@ -114,7 +120,6 @@ public class FilmService {
         );
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
     }
-
     @Transactional
     public void removeLike(Integer filmId, Long userId) {
         getById(filmId);
