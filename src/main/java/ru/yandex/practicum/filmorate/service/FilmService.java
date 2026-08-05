@@ -120,7 +120,7 @@ public class FilmService {
         );
         log.info("Пользователь {} поставил лайк фильму {}", userId, filmId);
     }
-    
+
     @Transactional
     public void removeLike(Integer filmId, Long userId) {
         getById(filmId);
