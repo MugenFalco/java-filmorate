@@ -106,12 +106,10 @@ public class FilmService {
                         "Пользователь с id " + userId + " не найден"
                 ));
 
-        if (filmStorage.hasLike(filmId, userId)) {
-            log.info("Пользователь {} уже лайкал фильм {}", userId, filmId);
-            return;
+        if (!filmStorage.hasLike(filmId, userId)) {
+            filmStorage.addLike(filmId, userId);
         }
 
-        filmStorage.addLike(filmId, userId);
         eventService.addEvent(
                 userId.intValue(),
                 EventType.LIKE,
