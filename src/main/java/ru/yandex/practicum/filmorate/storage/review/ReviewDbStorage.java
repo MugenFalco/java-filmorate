@@ -129,12 +129,11 @@ public class ReviewDbStorage implements ReviewStorage {
     }
 
     @Override
-    public Optional<Boolean> getRatingForUpdate(Long reviewId, Integer userId) {
+    public Optional<Boolean> getRating(Long reviewId, Integer userId) {
         String sql = """
                 SELECT is_like
                 FROM review_ratings
                 WHERE review_id = ? AND user_id = ?
-                FOR UPDATE
                 """;
 
         List<Boolean> ratings = jdbcTemplate.query(

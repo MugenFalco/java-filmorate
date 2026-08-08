@@ -1,78 +1,74 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.model.Event;
-import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.service.EventService;
-import ru.yandex.practicum.filmorate.service.FilmService;
 import ru.yandex.practicum.filmorate.service.UserService;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/users")
 @RequiredArgsConstructor
+@Validated
 public class UserController {
-
     private final UserService userService;
-    private final EventService eventService;
-    private final FilmService filmService;
 
     @PostMapping
     public User createUser(@Valid @RequestBody User user) {
-        return userService.add(user);
+        log.info("POST /users - создание пользователя: {}", user.getLogin());
+        return userService.createUser(user);
     }
 
     @PutMapping
     public User updateUser(@Valid @RequestBody User user) {
-        return userService.update(user);
-    }
-
-    @GetMapping
-    public List<User> getAllUsers() {
-        return userService.getAll();
+        log.info("PUT /users - обновление пользователя с id: {}", user.getId());
+        return userService.updateUser(user);
     }
 
     @GetMapping("/{id}")
     public User getUserById(@PathVariable Integer id) {
-        return userService.getById(id);
+        log.info("GET /users/{} - получение пользователя по id", id);
+        return userService.getUserById(id);
     }
 
-    @DeleteMapping("/{userId}")
-    public void deleteUser(@PathVariable Integer userId) {
-        userService.delete(userId);
+    @GetMapping
+    public List<User> getAllUsers() {
+        log.info("GET /users - получение всех пользователей");
+        return userService.getAllUsers();
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Integer id) {
+        log.info("DELETE /users/{} - удаление пользователя", id);
+        userService.deleteUser(id);
     }
 
     @PutMapping("/{id}/friends/{friendId}")
-    public User addFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
-        return userService.addFriend(id, friendId);
+    public void addFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
+        log.info("PUT /users/{}/friends/{} - добавление друга", id, friendId);
+        userService.addFriend(id, friendId);
     }
 
     @DeleteMapping("/{id}/friends/{friendId}")
-    public User removeFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
-        return userService.removeFriend(id, friendId);
+    public void removeFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
+        log.info("DELETE /users/{}/friends/{} - удаление друга", id, friendId);
+        userService.removeFriend(id, friendId);
     }
 
     @GetMapping("/{id}/friends")
     public List<User> getFriends(@PathVariable Integer id) {
+        log.info("GET /users/{}/friends - получение друзей", id);
         return userService.getFriends(id);
     }
 
     @GetMapping("/{id}/friends/common/{otherId}")
     public List<User> getCommonFriends(@PathVariable Integer id, @PathVariable Integer otherId) {
+        log.info("GET /users/{}/friends/common/{} - получение общих друзей", id, otherId);
         return userService.getCommonFriends(id, otherId);
-    }
-
-    @GetMapping("/{id}/feed")
-    public List<Event> getFeed(@PathVariable Integer id) {
-        return eventService.getFeed(id);
-    }
-
-    @GetMapping("/{id}/recommendations")
-    public List<Film> getRecommendations(@PathVariable Integer id) {
-        return filmService.getRecommendations(id);
     }
 }

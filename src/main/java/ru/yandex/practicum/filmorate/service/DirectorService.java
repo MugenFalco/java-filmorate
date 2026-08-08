@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
@@ -9,70 +10,49 @@ import ru.yandex.practicum.filmorate.storage.director.DirectorStorage;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DirectorService {
-
-    private static final int MAX_NAME_LENGTH = 255;
-
     private final DirectorStorage directorStorage;
 
-    public List<Director> getAll() {
-        return directorStorage.getAll();
-    }
-
-    public Director getById(Integer id) {
-        return directorStorage.getById(id)
-                .orElseThrow(() -> directorNotFound(id));
-    }
-
     public Director add(Director director) {
-        validateName(director.getName());
-        return directorStorage.add(director);
+        validateDirector(director);
+        return directorStorage.create(director);
     }
 
     public Director update(Director director) {
         if (director.getId() == null) {
-            throw new ValidationException(
-                    "ID режиссёра должен быть указан"
-            );
+            throw new ValidationException("Id режиссёра обязателен для обновления");
         }
-
-        validateName(director.getName());
-
-        int updatedRows = directorStorage.update(director);
-        if (updatedRows == 0) {
-            throw directorNotFound(director.getId());
-        }
-
-        return director;
+        getById(director.getId());
+        validateDirector(director);
+        return directorStorage.update(director);
     }
 
     public void delete(Integer id) {
-        int deletedRows = directorStorage.delete(id);
-        if (deletedRows == 0) {
-            throw directorNotFound(id);
+        if (directorStorage.findById(id).isEmpty()) {
+            throw new NotFoundException("Режиссёр с id " + id + " не найден");
         }
+        directorStorage.delete(id);
+        log.info("Удалён режиссёр с id: {}", id);
     }
 
-    private void validateName(String name) {
-        if (name == null || name.isBlank()) {
-            throw new ValidationException(
-                    "Имя режиссёра не может быть пустым"
-            );
-        }
-
-        if (name.length() > MAX_NAME_LENGTH) {
-            throw new ValidationException(
-                    "Имя режиссёра не может быть длиннее "
-                            + MAX_NAME_LENGTH + " символов"
-            );
-        }
+    public Director getById(Integer id) {
+        return directorStorage.findById(id)
+                .orElseThrow(() -> new NotFoundException("Режиссёр с id " + id + " не найден"));
     }
 
-    private NotFoundException directorNotFound(Integer id) {
-        return new NotFoundException(
-                "Режиссёр с id " + id + " не найден"
-        );
+    public List<Director> getAll() {
+        return directorStorage.findAll();
+    }
+
+    private void validateDirector(Director director) {
+        if (director.getName() == null || director.getName().isBlank()) {
+            throw new ValidationException("Имя режиссёра не может быть пустым");
+        }
+        if (director.getName().length() > 255) {
+            throw new ValidationException("Имя режиссёра не должно превышать 255 символов");
+        }
     }
 }

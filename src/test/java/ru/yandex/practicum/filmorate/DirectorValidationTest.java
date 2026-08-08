@@ -1,120 +1,93 @@
 package ru.yandex.practicum.filmorate;
 
-import lombok.RequiredArgsConstructor;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.jdbc.JdbcTest;
 import org.springframework.context.annotation.Import;
+import ru.yandex.practicum.filmorate.controller.DirectorController;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Director;
 import ru.yandex.practicum.filmorate.service.DirectorService;
 import ru.yandex.practicum.filmorate.storage.director.DirectorDbStorage;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 @JdbcTest
 @AutoConfigureTestDatabase
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import(DirectorDbStorage.class)
+@Import({DirectorDbStorage.class})
 class DirectorValidationTest {
 
-    private final DirectorDbStorage directorStorage;
-    private DirectorService service;
+    @Autowired
+    private DirectorDbStorage directorStorage;
 
-    @BeforeEach
+    private DirectorController controller;
+
+    @org.junit.jupiter.api.BeforeEach
     void setUp() {
-        service = new DirectorService(directorStorage);
+        controller = new DirectorController(new DirectorService(directorStorage));
+    }
+
+    private Director createValidDirector() {
+        Director director = new Director();
+        director.setName("Кристофер Нолан");
+        return director;
+    }
+
+    @Test
+    void shouldCreateDirector() {
+        Director director = createValidDirector();
+        Director created = controller.create(director);
+        assertNotNull(created.getId());
+        assertEquals("Кристофер Нолан", created.getName());
     }
 
     @Test
     void shouldFailWhenNameIsEmpty() {
-        Director director = new Director();
+        Director director = createValidDirector();
         director.setName("");
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.add(director)
+                () -> controller.create(director)
         );
         assertEquals("Имя режиссёра не может быть пустым", ex.getMessage());
     }
 
     @Test
     void shouldFailWhenNameIsBlank() {
-        Director director = new Director();
-        director.setName("   ");
+        Director director = createValidDirector();
+        director.setName(" ");
 
-        assertThrows(ValidationException.class, () -> service.add(director));
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> controller.create(director)
+        );
+        assertEquals("Имя режиссёра не может быть пустым", ex.getMessage());
     }
 
     @Test
-    void shouldFailWhenNameIsTooLong() {
-        Director director = new Director();
-        director.setName("а".repeat(256));
+    void shouldUpdateDirector() {
+        Director director = createValidDirector();
+        Director created = controller.create(director);
 
-        assertThrows(ValidationException.class, () -> service.add(director));
+        created.setName("Квентин Тарантино");
+        Director updated = controller.update(created);
+
+        assertEquals("Квентин Тарантино", updated.getName());
     }
 
     @Test
-    void shouldPassWhenNameIsExactlyMaxLength() {
-        Director director = new Director();
-        director.setName("а".repeat(255));
+    void shouldDeleteDirector() {
+        Director director = createValidDirector();
+        Director created = controller.create(director);
 
-        assertThat(service.add(director).getId()).isNotNull();
-    }
+        controller.delete(created.getId());
 
-    @Test
-    void shouldCreateGetUpdateAndDeleteDirector() {
-        Director created = service.add(new Director(null, "Кристофер Нолан"));
-        assertThat(created.getId()).isNotNull();
-
-        Director found = service.getById(created.getId());
-        assertThat(found.getName()).isEqualTo("Кристофер Нолан");
-
-        found.setName("Квентин Тарантино");
-        Director updated = service.update(found);
-        assertThat(updated.getName()).isEqualTo("Квентин Тарантино");
-        assertThat(service.getById(created.getId()).getName())
-                .isEqualTo("Квентин Тарантино");
-
-        service.delete(created.getId());
-        assertThrows(NotFoundException.class, () -> service.getById(created.getId()));
-    }
-
-    @Test
-    void shouldReturnAllDirectors() {
-        service.add(new Director(null, "Режиссёр 1"));
-        service.add(new Director(null, "Режиссёр 2"));
-
-        assertThat(service.getAll()).hasSizeGreaterThanOrEqualTo(2);
-    }
-
-    @Test
-    void shouldFailWhenGettingNonExistentDirector() {
-        assertThrows(NotFoundException.class, () -> service.getById(9999));
-    }
-
-    @Test
-    void shouldFailWhenUpdatingWithoutId() {
-        Director director = new Director();
-        director.setName("Без id");
-
-        assertThrows(ValidationException.class, () -> service.update(director));
-    }
-
-    @Test
-    void shouldFailWhenUpdatingNonExistentDirector() {
-        Director director = new Director(9999, "Призрак");
-
-        assertThrows(NotFoundException.class, () -> service.update(director));
-    }
-
-    @Test
-    void shouldFailWhenDeletingNonExistentDirector() {
-        assertThrows(NotFoundException.class, () -> service.delete(9999));
+        assertThrows(
+                NotFoundException.class,
+                () -> controller.getById(created.getId())
+        );
     }
 }

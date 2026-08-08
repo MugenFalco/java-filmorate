@@ -2,53 +2,64 @@ package ru.yandex.practicum.filmorate.storage.genre;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Genre;
 
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
-public class GenreDbStorage {
-
+public class GenreDbStorage implements GenreStorage {
     private final JdbcTemplate jdbcTemplate;
-    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
-    public List<Genre> getAll() {
-        return jdbcTemplate.query(
-                "SELECT id, name FROM genres ORDER BY id",
-                (rs, rn) -> new Genre(rs.getInt("id"), rs.getString("name"))
-        );
+    private final RowMapper<Genre> genreMapper = (rs, rowNum) -> Genre.builder()
+            .id(rs.getInt("id"))
+            .name(rs.getString("name"))
+            .build();
+
+    @Override
+    public List<Genre> findAll() {
+        String sql = "SELECT * FROM genres ORDER BY id";
+        return jdbcTemplate.query(sql, genreMapper);
     }
 
-    public Genre getById(Integer id) {
-        List<Genre> genres = jdbcTemplate.query(
-                "SELECT id, name FROM genres WHERE id = ?",
-                (rs, rn) -> new Genre(rs.getInt("id"), rs.getString("name")),
-                id
-        );
-        if (genres.isEmpty()) {
-            throw new NotFoundException("Жанр с id " + id + " не найден");
-        }
-        return genres.getFirst();
+    @Override
+    public Optional<Genre> findById(Integer id) {
+        String sql = "SELECT * FROM genres WHERE id = ?";
+        List<Genre> genres = jdbcTemplate.query(sql, genreMapper, id);
+        return genres.isEmpty() ? Optional.empty() : Optional.of(genres.get(0));
     }
 
-    public Set<Integer> getExistingIds(Collection<Integer> ids) {
-        if (ids.isEmpty()) {
-            return Set.of();
+    @Override
+    public List<Genre> getGenresByFilmId(Long filmId) {
+        String sql = "SELECT g.* FROM genres g JOIN film_genres fg ON fg.genre_id = g.id WHERE fg.film_id = ? ORDER BY g.id";
+        return jdbcTemplate.query(sql, genreMapper, filmId);
+    }
+
+    @Override
+    public void addFilmGenres(Long filmId, List<Integer> genreIds) {
+        if (genreIds == null || genreIds.isEmpty()) {
+            return;
         }
 
-        MapSqlParameterSource params = new MapSqlParameterSource("ids", ids);
-        return new HashSet<>(namedJdbcTemplate.query(
-                "SELECT id FROM genres WHERE id IN (:ids)",
-                params,
-                (resultSet, rowNum) -> resultSet.getInt("id")
-        ));
+        for (Integer genreId : genreIds) {
+            if (!findById(genreId).isPresent()) {
+                throw new IllegalArgumentException("Жанр с id " + genreId + " не найден");
+            }
+        }
+
+        String sql = "INSERT INTO film_genres (film_id, genre_id) VALUES (?, ?)";
+        jdbcTemplate.batchUpdate(sql, genreIds, genreIds.size(), (ps, genreId) -> {
+            ps.setLong(1, filmId);
+            ps.setInt(2, genreId);
+        });
+    }
+
+    @Override
+    public void removeFilmGenres(Long filmId) {
+        String sql = "DELETE FROM film_genres WHERE film_id = ?";
+        jdbcTemplate.update(sql, filmId);
     }
 }

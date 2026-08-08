@@ -5,13 +5,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class Event {
-    private Long eventId;
-    private Long timestamp;
-    private Integer userId;
-    private EventType eventType;
-    private Operation operation;
+    private Long id;
+    private Long userId;
     private Long entityId;
+    private String eventType;
+    private String operation;
+    private Long timestamp;
+
+    public Event(Long userId, Long entityId, String eventType, String operation) {
+        this.userId = userId;
+        this.entityId = entityId;
+        this.eventType = eventType;
+        this.operation = operation;
+        this.timestamp = System.currentTimeMillis();
+    }
 }

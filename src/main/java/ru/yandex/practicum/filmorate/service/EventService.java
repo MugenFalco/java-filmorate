@@ -1,45 +1,26 @@
 package ru.yandex.practicum.filmorate.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Event;
-import ru.yandex.practicum.filmorate.model.EventType;
-import ru.yandex.practicum.filmorate.model.Operation;
 import ru.yandex.practicum.filmorate.storage.event.EventStorage;
-import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EventService {
 
     private final EventStorage eventStorage;
-    private final UserStorage userStorage;
 
-    public void addEvent(Integer userId,
-                         EventType eventType,
-                         Operation operation,
-                         Long entityId) {
-        Event event = new Event(
-                null,
-                System.currentTimeMillis(),
-                userId,
-                eventType,
-                operation,
-                entityId
-        );
-
+    public void addEvent(Long userId, Long entityId, String eventType, String operation) {
+        Event event = new Event(userId, entityId, eventType, operation);
         eventStorage.add(event);
     }
 
-    public List<Event> getFeed(Integer userId) {
-        userStorage.getById(userId)
-                .orElseThrow(() -> new NotFoundException(
-                        "Пользователь с id " + userId + " не найден"
-                ));
-
+    public List<Event> getUserEvents(Long userId) {
         return eventStorage.getByUserId(userId);
     }
 }

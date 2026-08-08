@@ -3,90 +3,98 @@ package ru.yandex.practicum.filmorate.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.model.EventType;
-import ru.yandex.practicum.filmorate.model.Operation;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.user.UserStorage;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
-
     private final UserStorage userStorage;
-    private final EventService eventService;
 
-    public User add(User user) {
-        setDefaultName(user);
-        return userStorage.add(user);
+    public User createUser(User user) {
+        validateUser(user);
+        return userStorage.create(user);
     }
 
-    public User update(User user) {
-        getById(user.getId());
-        setDefaultName(user);
+    public User updateUser(User user) {
+        if (user.getId() == null) {
+            throw new ValidationException("Id пользователя обязателен для обновления");
+        }
+        getUserById(user.getId());
+        validateUser(user);
         return userStorage.update(user);
     }
 
-    public List<User> getAll() {
-        return userStorage.getAll();
+    public User getUserById(Integer id) {
+        return userStorage.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь с id " + id + " не найден"));
     }
 
-    public User getById(Integer id) {
-        return userStorage.getById(id).orElseThrow(() ->
-                new NotFoundException("Пользователь с id " + id + " не найден"));
+    public List<User> getAllUsers() {
+        return userStorage.findAll();
     }
 
-    public void delete(Integer userId) {
-        int deletedRows = userStorage.delete(userId);
-
-        if (deletedRows == 0) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
+    public void deleteUser(Integer id) {
+        if (userStorage.findById(id).isEmpty()) {
+            throw new NotFoundException("Пользователь с id " + id + " не найден");
         }
-
-        log.info("Удалён пользователь с id: {}", userId);
+        userStorage.delete(id);
+        log.info("Удалён пользователь с id: {}", id);
     }
 
-    @Transactional
-    public User addFriend(Integer userId, Integer friendId) {
-        getById(userId);
-        getById(friendId);
+    public void addFriend(Integer userId, Integer friendId) {
+        getUserById(userId);
+        getUserById(friendId);
         userStorage.addFriend(userId, friendId);
-        eventService.addEvent(userId, EventType.FRIEND, Operation.ADD, friendId.longValue());
-        log.info("Пользователь {} добавил в друзья {}", userId, friendId);
-        return getById(userId);
+        log.debug("Пользователь {} добавил в друзья {}", userId, friendId);
     }
 
-    @Transactional
-    public User removeFriend(Integer userId, Integer friendId) {
-        getById(userId);
-        getById(friendId);
-        int deletedRows = userStorage.removeFriend(userId, friendId);
-
-        if (deletedRows > 0) {
-            eventService.addEvent(userId, EventType.FRIEND, Operation.REMOVE, friendId.longValue());
-        }
-        log.info("Пользователь {} удалил из друзей {}", userId, friendId);
-        return getById(userId);
+    public void removeFriend(Integer userId, Integer friendId) {
+        getUserById(userId);
+        getUserById(friendId);
+        userStorage.removeFriend(userId, friendId);
+        log.debug("Пользователь {} удалил из друзей {}", userId, friendId);
     }
 
     public List<User> getFriends(Integer userId) {
-        getById(userId);
+        getUserById(userId);
         return userStorage.getFriends(userId);
     }
 
     public List<User> getCommonFriends(Integer userId, Integer otherId) {
-        getById(userId);
-        getById(otherId);
+        getUserById(userId);
+        getUserById(otherId);
         return userStorage.getCommonFriends(userId, otherId);
     }
 
-    private void setDefaultName(User user) {
+    private void validateUser(User user) {
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            throw new ValidationException("Email не может быть пустым");
+        }
+        if (!user.getEmail().contains("@")) {
+            throw new ValidationException("Некорректный формат email");
+        }
+        if (user.getLogin() == null || user.getLogin().isBlank()) {
+            throw new ValidationException("Логин не может быть пустым");
+        }
+        if (user.getLogin().contains(" ")) {
+            throw new ValidationException("Логин не должен содержать пробелы");
+        }
+        if (user.getBirthday() == null) {
+            throw new ValidationException("Дата рождения не может быть null");
+        }
+        if (user.getBirthday().isAfter(LocalDate.now())) {
+            throw new ValidationException("Дата рождения не может быть в будущем");
+        }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
+            log.debug("Имя пользователя пустое, используем логин: {}", user.getLogin());
         }
     }
 }
