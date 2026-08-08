@@ -457,8 +457,7 @@ class FilmorateApplicationTests {
     @BeforeEach
     void setUp() {
         eventService = new EventService(
-                eventStorage,
-                userStorage
+                eventStorage
         );
 
         filmService = new FilmService(
@@ -534,7 +533,7 @@ class FilmorateApplicationTests {
         filmStorage.addLike(created1.getId(), user2.getId().longValue());
         filmStorage.addLike(created2.getId(), user1.getId().longValue());
 
-        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "likes");
+        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), SortType.LIKES);
 
         assertEquals(created1.getId(), result.get(0).getId());
         assertEquals(created2.getId(), result.get(1).getId());
@@ -554,7 +553,7 @@ class FilmorateApplicationTests {
         newer.setDirectors(List.of(director));
         Film createdNewer = filmStorage.add(newer);
 
-        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), "year");
+        List<Film> result = filmStorage.getFilmsByDirector(director.getId(), SortType.YEAR);
 
         assertThat(result)
                 .extracting(Film::getId)
@@ -565,7 +564,7 @@ class FilmorateApplicationTests {
     void shouldFailWhenGettingFilmsByNonExistentDirector() {
         assertThrows(
                 NotFoundException.class,
-                () -> filmStorage.getFilmsByDirector(9999, "likes")
+                () -> filmStorage.getFilmsByDirector(9999, SortType.LIKES)
         );
     }
 

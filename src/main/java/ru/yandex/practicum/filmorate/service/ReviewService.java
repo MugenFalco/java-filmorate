@@ -27,9 +27,6 @@ public class ReviewService {
         userService.getById(review.getUserId());
         filmService.getById(review.getFilmId());
 
-        review.setReviewId(null);
-        review.setUseful(0);
-
         Review createdReview = reviewStorage.add(review);
 
         eventService.addEvent(

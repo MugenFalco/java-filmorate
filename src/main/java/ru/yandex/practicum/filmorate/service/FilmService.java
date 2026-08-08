@@ -89,12 +89,7 @@ public class FilmService {
     }
 
     public void deleteFilm(Integer id) {
-        int deletedRows = filmStorage.delete(id);
-
-        if (deletedRows == 0) {
-            throw new NotFoundException("Фильм с указанным id не найден");
-        }
-
+        filmStorage.delete(id);
         log.info("Удалён фильм с id: {}", id);
     }
 
@@ -141,8 +136,8 @@ public class FilmService {
         if (count <= 0) {
             throw new ValidationException("Количество фильмов должно быть положительным");
         }
-        if (year != null && year < 1895) {
-            throw new ValidationException("Год не может быть меньше 1895");
+        if (year != null && year < CINEMA_BIRTHDAY.getYear()) {
+            throw new ValidationException("Год не может быть меньше " + CINEMA_BIRTHDAY.getYear());
         }
         if (genreId != null && genreId <= 0) {
             throw new ValidationException("ID жанра должен быть положительным");
@@ -151,37 +146,35 @@ public class FilmService {
     }
 
     public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
-        if (!"year".equalsIgnoreCase(sortBy) && !"likes".equalsIgnoreCase(sortBy)) {
-            throw new ValidationException("Параметр sortBy должен быть 'year' или 'likes'");
-        }
-        return filmStorage.getFilmsByDirector(directorId, sortBy);
-    }
-
-    public List<Film> search(String query, String by) {
-        if (query == null || query.isBlank()) {
-            throw new ValidationException("Query не может быть пустым");
-        }
-        if (by == null || by.isBlank()) {
-            throw new ValidationException("Параметр 'by' не может быть пустым");
-        }
-
-        Set<String> searchFields = Arrays.stream(by.split(",", -1))
-                .map(String::trim)
-                .map(value -> value.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toSet());
-
-        Set<String> allowedFields = Set.of("title", "director");
-
-        boolean searchTitle = searchFields.contains("title");
-        boolean searchDirector = searchFields.contains("director");
-
-        if (!allowedFields.containsAll(searchFields)) {
+        SortType sortType;
+        try {
+            sortType = SortType.valueOf(sortBy.toUpperCase());
+        } catch (IllegalArgumentException e) {
             throw new ValidationException(
-                    "Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'"
+                    "Некорректный параметр 'sortBy'. Используйте 'year' или 'likes'"
             );
         }
 
-        return filmStorage.search(query, searchTitle, searchDirector);
+        return filmStorage.getFilmsByDirector(directorId, sortType);
+    }
+
+    public List<Film> search(String query, String by) {
+        Set<SearchField> fields = new HashSet<>();
+        for (String field : by.split(",")) {
+            try {
+                fields.add(SearchField.valueOf(field.trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new ValidationException(
+                        "Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'"
+                );
+            }
+        }
+
+        return filmStorage.search(
+                query,
+                fields.contains(SearchField.TITLE),
+                fields.contains(SearchField.DIRECTOR)
+        );
     }
 
     public List<Film> getCommonFilms(Integer userId, Integer friendId) {

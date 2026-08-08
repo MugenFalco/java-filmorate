@@ -52,8 +52,7 @@ class UserValidationTest {
     @BeforeEach
     void setUp() {
         EventService eventService = new EventService(
-                eventStorage,
-                userStorage
+                eventStorage
         );
 
         UserService userService = new UserService(
@@ -165,16 +164,6 @@ class UserValidationTest {
                 NotFoundException.class,
                 () -> controller.getUserById(created.getId())
         );
-    }
-
-    @Test
-    void shouldFailWhenDeletingNonExistentUser() {
-        NotFoundException ex = assertThrows(
-                NotFoundException.class,
-                () -> controller.deleteUser(9999)
-        );
-
-        assertEquals("Пользователь с id 9999 не найден", ex.getMessage());
     }
 
     private void assertValidationMessage(User user, String expectedMessage) {

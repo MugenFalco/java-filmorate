@@ -13,8 +13,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DirectorService {
 
-    private static final int MAX_NAME_LENGTH = 255;
-
     private final DirectorStorage directorStorage;
 
     public List<Director> getAll() {
@@ -27,7 +25,6 @@ public class DirectorService {
     }
 
     public Director add(Director director) {
-        validateName(director.getName());
         return directorStorage.add(director);
     }
 
@@ -38,8 +35,6 @@ public class DirectorService {
             );
         }
 
-        validateName(director.getName());
-
         int updatedRows = directorStorage.update(director);
         if (updatedRows == 0) {
             throw directorNotFound(director.getId());
@@ -49,25 +44,7 @@ public class DirectorService {
     }
 
     public void delete(Integer id) {
-        int deletedRows = directorStorage.delete(id);
-        if (deletedRows == 0) {
-            throw directorNotFound(id);
-        }
-    }
-
-    private void validateName(String name) {
-        if (name == null || name.isBlank()) {
-            throw new ValidationException(
-                    "Имя режиссёра не может быть пустым"
-            );
-        }
-
-        if (name.length() > MAX_NAME_LENGTH) {
-            throw new ValidationException(
-                    "Имя режиссёра не может быть длиннее "
-                            + MAX_NAME_LENGTH + " символов"
-            );
-        }
+        directorStorage.delete(id);
     }
 
     private NotFoundException directorNotFound(Integer id) {

@@ -14,4 +14,15 @@ public class Event {
     private EventType eventType;
     private Operation operation;
     private Long entityId;
+
+    public Event(Integer userId,
+                 EventType eventType,
+                 Operation operation,
+                 Long entityId) {
+        this.timestamp = System.currentTimeMillis();
+        this.userId = userId;
+        this.eventType = eventType;
+        this.operation = operation;
+        this.entityId = entityId;
+    }
 }

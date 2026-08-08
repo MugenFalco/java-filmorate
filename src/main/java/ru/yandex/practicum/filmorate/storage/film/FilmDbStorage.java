@@ -10,10 +10,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.model.Director;
-import ru.yandex.practicum.filmorate.model.Film;
-import ru.yandex.practicum.filmorate.model.Genre;
-import ru.yandex.practicum.filmorate.model.Mpa;
+import ru.yandex.practicum.filmorate.model.*;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -53,8 +50,7 @@ public class FilmDbStorage implements FilmStorage {
         saveDirectors(film);
         log.info("Добавлен фильм: {}", film.getName());
 
-        return getById(film.getId()).orElseThrow(() ->
-                new NotFoundException("Фильм с id " + film.getId() + " не найден после сохранения"));
+        return film;
     }
 
     @Transactional
@@ -81,8 +77,7 @@ public class FilmDbStorage implements FilmStorage {
 
         log.info("Обновлён фильм: {}", film.getName());
 
-        return getById(film.getId()).orElseThrow(() ->
-                new NotFoundException("Фильм с id " + film.getId() + " не найден после обновления"));
+        return film;
     }
 
     @Override
@@ -106,9 +101,7 @@ public class FilmDbStorage implements FilmStorage {
             return Optional.empty();
         }
         Film film = films.getFirst();
-        film.setGenres(getGenresByFilmId(film.getId()));
-        film.setDirectors(getDirectorsByFilmId(film.getId()));
-        film.setLikes(getLikesByFilmId(film.getId()));
+        loadFilmRelations(List.of(film));
         return Optional.of(film);
     }
 
@@ -179,7 +172,7 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     @Override
-    public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
+    public List<Film> getFilmsByDirector(Integer directorId, SortType sortType) {
         String checkSql = "SELECT COUNT(*) FROM directors WHERE id = ?";
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, directorId);
         if (count == null || count == 0) {
@@ -187,7 +180,7 @@ public class FilmDbStorage implements FilmStorage {
         }
 
         String orderBy;
-        if ("year".equalsIgnoreCase(sortBy)) {
+        if (sortType == SortType.YEAR) {
             orderBy = "EXTRACT(YEAR FROM f.release_date) ASC";
         } else {
             orderBy = "COUNT(l.user_id) DESC";
@@ -281,39 +274,51 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getRecommendations(Integer userId) {
-        String sql = """
-                SELECT DISTINCT f.*, m.name AS mpa_name
-                FROM films f
-                JOIN mpa_ratings m ON f.mpa_id = m.id
-                JOIN likes l ON f.id = l.film_id
-                WHERE l.user_id IN (
-                    SELECT l2.user_id
-                    FROM likes l1
-                    JOIN likes l2 ON l1.film_id = l2.film_id AND l2.user_id != ?
-                    WHERE l1.user_id = ?
-                    GROUP BY l2.user_id
-                    HAVING COUNT(*) = (
-                        SELECT MAX(t.cnt)
-                        FROM (
-                            SELECT COUNT(*) AS cnt
-                            FROM likes l1
-                            JOIN likes l2 ON l1.film_id = l2.film_id AND l2.user_id != ?
-                            WHERE l1.user_id = ?
-                            GROUP BY l2.user_id
-                        ) t
-                    )
-                )
-                AND f.id NOT IN (
-                    SELECT film_id
-                    FROM likes
-                    WHERE user_id = ?
-                )
-                ORDER BY f.id
-                """;
+        Integer likesCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM likes WHERE user_id = ?",
+                Integer.class,
+                userId
+        );
+        if (likesCount == null || likesCount == 0) {
+            return new ArrayList<>();
+        }
+
+        String findSimilarUserSql = """
+            SELECT l2.user_id
+            FROM likes l1
+            JOIN likes l2 ON l1.film_id = l2.film_id AND l2.user_id != ?
+            WHERE l1.user_id = ?
+            GROUP BY l2.user_id
+            ORDER BY COUNT(*) DESC, l2.user_id ASC
+            LIMIT 1
+            """;
+
+        List<Integer> similarUsers = jdbcTemplate.query(
+                findSimilarUserSql,
+                (rs, rowNum) -> rs.getInt("user_id"),
+                userId, userId
+        );
+
+        if (similarUsers.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        String findRecommendationsSql = """
+            SELECT f.*, m.name AS mpa_name
+            FROM films f
+            JOIN mpa_ratings m ON f.mpa_id = m.id
+            JOIN likes l ON f.id = l.film_id
+            WHERE l.user_id = ?
+            AND f.id NOT IN (
+                SELECT film_id FROM likes WHERE user_id = ?
+            )
+            ORDER BY f.id
+            """;
 
         List<Film> films = jdbcTemplate.query(
-                sql, this::mapRowToFilm,
-                userId, userId, userId, userId, userId
+                findRecommendationsSql,
+                this::mapRowToFilm,
+                similarUsers.get(0), userId
         );
 
         loadFilmRelations(films);

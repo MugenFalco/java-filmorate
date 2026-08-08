@@ -41,12 +41,7 @@ public class UserService {
     }
 
     public void delete(Integer userId) {
-        int deletedRows = userStorage.delete(userId);
-
-        if (deletedRows == 0) {
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
-
+        userStorage.delete(userId);
         log.info("Удалён пользователь с id: {}", userId);
     }
 

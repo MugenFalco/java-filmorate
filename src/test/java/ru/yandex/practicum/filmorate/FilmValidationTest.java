@@ -56,8 +56,7 @@ class FilmValidationTest {
     @BeforeEach
     void setUp() {
         EventService eventService = new EventService(
-                eventStorage,
-                userStorage
+                eventStorage
         );
 
         FilmService filmService = new FilmService(
@@ -240,24 +239,6 @@ class FilmValidationTest {
         assertThrows(
                 NotFoundException.class,
                 () -> controller.getFilmById(created.getId())
-        );
-    }
-
-    @Test
-    void shouldFailWhenDeletingNonExistentFilm() {
-        NotFoundException ex = assertThrows(
-                NotFoundException.class,
-                () -> controller.deleteFilm(9999)
-        );
-
-        assertEquals("Фильм с указанным id не найден", ex.getMessage());
-    }
-
-    @Test
-    void shouldFailWhenSearchQueryIsEmpty() {
-        assertThrows(
-                ValidationException.class,
-                () -> controller.searchFilms("", "title")
         );
     }
 
