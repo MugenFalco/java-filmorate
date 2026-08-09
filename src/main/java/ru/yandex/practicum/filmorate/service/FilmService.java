@@ -146,29 +146,22 @@ public class FilmService {
     }
 
     public List<Film> getFilmsByDirector(Integer directorId, String sortBy) {
-        SortType sortType;
-        try {
-            sortType = SortType.valueOf(sortBy.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException(
-                    "Некорректный параметр 'sortBy'. Используйте 'year' или 'likes'"
-            );
-        }
+        SortType sortType = SortType.from(sortBy)
+                .orElseThrow(() -> new ValidationException(
+                        "Некорректный параметр 'sortBy'. Используйте 'year' или 'likes'"
+                ));
 
         return filmStorage.getFilmsByDirector(directorId, sortType);
     }
 
     public List<Film> search(String query, String by) {
-        Set<SearchField> fields = new HashSet<>();
-        for (String field : by.split(",")) {
-            try {
-                fields.add(SearchField.valueOf(field.trim().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new ValidationException(
-                        "Некорректный параметр 'by'. Используйте 'title', 'director' или 'title,director'"
-                );
-            }
-        }
+        Set<SearchField> fields = Arrays.stream(by.split(","))
+                .map(field -> SearchField.from(field)
+                        .orElseThrow(() -> new ValidationException(
+                                "Некорректный параметр 'by'. "
+                                        + "Используйте 'title', 'director' или 'title,director'"
+                        )))
+                .collect(Collectors.toSet());
 
         return filmStorage.search(
                 query,
