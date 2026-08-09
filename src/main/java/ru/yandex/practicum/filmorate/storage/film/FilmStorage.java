@@ -1,6 +1,7 @@
 package ru.yandex.practicum.filmorate.storage.film;
 
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.SortType;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,15 +12,25 @@ public interface FilmStorage {
 
     Film update(Film film);
 
-    void delete(Integer id);
+    int delete(Integer id);
 
     void addLike(Integer filmId, Long userId);
 
-    void removeLike(Integer filmId, Long userId);
+    boolean hasLike(Integer filmId, Long userId);
+
+    int removeLike(Integer filmId, Long userId);
 
     Optional<Film> getById(Integer id);
 
     List<Film> getAll();
 
-    List<Film> getPopular(int count);
+    List<Film> getPopular(int count, Integer genreId, Integer year);
+
+    List<Film> getFilmsByDirector(Integer directorId, SortType sortType);
+
+    List<Film> search(String query, boolean searchByTitle, boolean searchByDirector);
+
+    List<Film> getCommonFilms(Integer userId, Integer otherId);
+
+    List<Film> getRecommendations(Integer userId);
 }
